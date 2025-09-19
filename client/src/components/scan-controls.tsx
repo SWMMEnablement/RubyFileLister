@@ -22,7 +22,7 @@ export function ScanControls({ currentScan, onScanStart, onExport }: ScanControl
     directory: "",
     includeSubdirectories: true,
     showHiddenFiles: false,
-    rubyFilesOnly: true,
+    rubyFilesOnly: false,
   });
   const { toast } = useToast();
 

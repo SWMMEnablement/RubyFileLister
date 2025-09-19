@@ -17,21 +17,29 @@ export function FileList({ currentScan }: FileListProps) {
   const [filterType, setFilterType] = useState("All Files");
   const { toast } = useToast();
 
-  const { data: files = [], isLoading } = useQuery<ScannedFile[]>({
+  const { data: files = [], isLoading, error } = useQuery<ScannedFile[]>({
     queryKey: ["/api/scan", currentScan?.id, "files", { search: searchQuery, type: filterType }],
     enabled: !!currentScan?.id,
     queryFn: async () => {
+      console.log('FileList: Making API call for scan:', currentScan?.id);
       const searchParams = new URLSearchParams();
       if (searchQuery) searchParams.append('search', searchQuery);
       if (filterType && filterType !== 'All Files') searchParams.append('type', filterType);
       
-      const response = await fetch(`/api/scan/${currentScan!.id}/files?${searchParams.toString()}`);
+      const url = `/api/scan/${currentScan!.id}/files?${searchParams.toString()}`;
+      console.log('FileList: Fetching URL:', url);
+      const response = await fetch(url);
+      console.log('FileList: Response status:', response.status);
       if (!response.ok) {
         throw new Error(`Failed to fetch files: ${response.status}`);
       }
-      return response.json();
+      const data = await response.json();
+      console.log('FileList: Received data length:', data.length);
+      return data;
     },
   });
+
+  console.log('FileList: Current scan:', currentScan?.id, 'Files:', files.length, 'Error:', error);
 
   const handleCopyPath = (path: string) => {
     navigator.clipboard.writeText(path).then(() => {
