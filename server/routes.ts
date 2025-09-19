@@ -94,10 +94,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const options = scanOptionsSchema.parse(req.body);
       
       // Security validation - prevent scanning sensitive system directories
-      const allowedPathPrefixes = ['/home', '/workspace', '/tmp', './'];
-      const isAllowedPath = allowedPathPrefixes.some(prefix => 
-        options.directory.startsWith(prefix) || options.directory.startsWith(path.resolve(prefix))
-      );
+      const allowedPathPrefixes = [
+        // Unix/Linux paths
+        '/home', '/workspace', '/tmp', './',
+        // Windows paths
+        'C:\\Users', 'D:\\', 'E:\\', 'F:\\', 'G:\\',
+        // Allow any drive letter with Users folder
+        /^[A-Z]:\\Users/i,
+        // Allow relative paths
+        /^\.[\\/]/
+      ];
+      
+      const isAllowedPath = allowedPathPrefixes.some(prefix => {
+        if (typeof prefix === 'string') {
+          return options.directory.startsWith(prefix) || options.directory.startsWith(path.resolve(prefix));
+        } else {
+          // Handle regex patterns
+          return prefix.test(options.directory);
+        }
+      });
       
       if (!isAllowedPath) {
         return res.status(403).json({ message: "Directory access not permitted" });
