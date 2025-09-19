@@ -126,6 +126,9 @@ export function FileList({ currentScan }: FileListProps) {
                 <SelectItem value="View">Views</SelectItem>
                 <SelectItem value="Test">Tests</SelectItem>
                 <SelectItem value="Configuration">Configuration</SelectItem>
+                <SelectItem value="Library">Libraries</SelectItem>
+                <SelectItem value="Helper">Helpers</SelectItem>
+                <SelectItem value="Migration">Migrations</SelectItem>
               </SelectContent>
             </Select>
           </div>

@@ -9,18 +9,46 @@ import path from "path";
 function getFileType(filePath: string): string {
   const fileName = path.basename(filePath).toLowerCase();
   const dirPath = path.dirname(filePath).toLowerCase();
+  const extension = path.extname(fileName).toLowerCase();
   
+  // Ruby on Rails patterns
   if (dirPath.includes('/models/') || dirPath.includes('\\models\\')) return "Model";
   if (dirPath.includes('/controllers/') || dirPath.includes('\\controllers\\')) return "Controller";
   if (dirPath.includes('/views/') || dirPath.includes('\\views\\')) return "View";
+  
+  // TypeScript/JavaScript patterns
+  if (dirPath.includes('/components/') || dirPath.includes('\\components\\') ||
+      dirPath.includes('/src/components/') || dirPath.includes('\\src\\components\\')) return "View";
+  if (dirPath.includes('/pages/') || dirPath.includes('\\pages\\') ||
+      dirPath.includes('/src/pages/') || dirPath.includes('\\src\\pages\\')) return "View";
+  if (dirPath.includes('/services/') || dirPath.includes('\\services\\') ||
+      dirPath.includes('/src/services/') || dirPath.includes('\\src\\services\\')) return "Controller";
+  if (dirPath.includes('/hooks/') || dirPath.includes('\\hooks\\') ||
+      dirPath.includes('/src/hooks/') || dirPath.includes('\\src\\hooks\\')) return "Controller";
+  if (dirPath.includes('/utils/') || dirPath.includes('\\utils\\') ||
+      dirPath.includes('/src/utils/') || dirPath.includes('\\src\\utils\\')) return "Helper";
+  if (dirPath.includes('/lib/') || dirPath.includes('\\lib\\') ||
+      dirPath.includes('/src/lib/') || dirPath.includes('\\src\\lib\\')) return "Library";
+  
+  // Test patterns (for any project type)
   if (dirPath.includes('/spec/') || dirPath.includes('\\spec\\') || 
       dirPath.includes('/test/') || dirPath.includes('\\test\\') ||
-      fileName.includes('_spec.') || fileName.includes('_test.')) return "Test";
-  if (dirPath.includes('/config/') || dirPath.includes('\\config\\')) return "Configuration";
-  if (dirPath.includes('/lib/') || dirPath.includes('\\lib\\')) return "Library";
-  if (dirPath.includes('/helpers/') || dirPath.includes('\\helpers\\')) return "Helper";
-  if (dirPath.includes('/concerns/') || dirPath.includes('\\concerns\\')) return "Concern";
-  if (dirPath.includes('/migrations/') || dirPath.includes('\\migrations\\')) return "Migration";
+      dirPath.includes('/__tests__/') || dirPath.includes('\\__tests__\\') ||
+      fileName.includes('_spec.') || fileName.includes('_test.') ||
+      fileName.includes('.spec.') || fileName.includes('.test.')) return "Test";
+  
+  // Configuration patterns
+  if (dirPath.includes('/config/') || dirPath.includes('\\config\\') ||
+      fileName.includes('config') || fileName.includes('.config.') ||
+      extension === '.json' && (fileName.includes('package') || fileName.includes('tsconfig') || fileName.includes('vite.config'))) return "Configuration";
+      
+  // Shared/Schema patterns  
+  if (dirPath.includes('/shared/') || dirPath.includes('\\shared\\') ||
+      fileName.includes('schema') || fileName.includes('types')) return "Model";
+  
+  // Migrations patterns
+  if (dirPath.includes('/migrations/') || dirPath.includes('\\migrations\\') ||
+      dirPath.includes('/migrate/') || dirPath.includes('\\migrate\\')) return "Migration";
   
   return "Other";
 }
@@ -174,6 +202,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
+  // Get all scan sessions
+  app.get("/api/scans", async (req, res) => {
+    try {
+      const sessions = await storage.getAllScanSessions();
+      res.json(sessions);
+    } catch (error) {
+      console.error("Get scans error:", error);
+      res.status(500).json({ message: "Failed to get scan sessions" });
+    }
+  });
+  
   // Get scan session status
   app.get("/api/scan/:id", async (req, res) => {
     try {
@@ -192,11 +231,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/scan/:id/files", async (req, res) => {
     try {
       const { search = "", type = "" } = req.query;
+      console.log(`DEBUG: Files request - scanId: ${req.params.id}, search: "${search}", type: "${type}"`);
+      
       const files = await storage.searchScannedFiles(
         req.params.id, 
         search as string, 
         type as string
       );
+      
+      console.log(`DEBUG: Found ${files.length} files after filtering`);
+      if (files.length > 0) {
+        console.log(`DEBUG: Sample file types: ${files.slice(0, 3).map(f => f.type).join(', ')}`);
+      }
+      
       res.json(files);
     } catch (error) {
       console.error("Get files error:", error);

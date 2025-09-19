@@ -5,6 +5,7 @@ export interface IStorage {
   // Scan Sessions
   createScanSession(session: InsertScanSession): Promise<ScanSession>;
   getScanSession(id: string): Promise<ScanSession | undefined>;
+  getAllScanSessions(): Promise<ScanSession[]>;
   updateScanSession(id: string, updates: Partial<ScanSession>): Promise<ScanSession | undefined>;
   
   // Scanned Files
@@ -42,6 +43,11 @@ export class MemStorage implements IStorage {
 
   async getScanSession(id: string): Promise<ScanSession | undefined> {
     return this.scanSessions.get(id);
+  }
+
+  async getAllScanSessions(): Promise<ScanSession[]> {
+    return Array.from(this.scanSessions.values())
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime()); // Most recent first
   }
 
   async updateScanSession(id: string, updates: Partial<ScanSession>): Promise<ScanSession | undefined> {
