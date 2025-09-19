@@ -19,7 +19,18 @@ export function FileList({ currentScan }: FileListProps) {
 
   const { data: files = [], isLoading } = useQuery<ScannedFile[]>({
     queryKey: ["/api/scan", currentScan?.id, "files", { search: searchQuery, type: filterType }],
-    enabled: !!currentScan,
+    enabled: !!currentScan?.id,
+    queryFn: async () => {
+      const searchParams = new URLSearchParams();
+      if (searchQuery) searchParams.append('search', searchQuery);
+      if (filterType && filterType !== 'All Files') searchParams.append('type', filterType);
+      
+      const response = await fetch(`/api/scan/${currentScan!.id}/files?${searchParams.toString()}`);
+      if (!response.ok) {
+        throw new Error(`Failed to fetch files: ${response.status}`);
+      }
+      return response.json();
+    },
   });
 
   const handleCopyPath = (path: string) => {
