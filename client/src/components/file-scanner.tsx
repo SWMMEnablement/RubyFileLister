@@ -1,0 +1,69 @@
+import { useState } from "react";
+import { Gem, Settings, HelpCircle } from "lucide-react";
+import { ScanControls } from "./scan-controls.tsx";
+import { FileList } from "./file-list.tsx";
+import { ExportModal } from "./export-modal.tsx";
+import type { ScanSession } from "@shared/schema";
+
+export function FileScanner() {
+  const [currentScan, setCurrentScan] = useState<ScanSession | null>(null);
+  const [isExportModalOpen, setIsExportModalOpen] = useState(false);
+
+  return (
+    <>
+      {/* Header */}
+      <header className="bg-card border-b border-border px-6 py-4 shadow-sm fixed top-0 left-0 right-0 z-10">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-3">
+            <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
+              <Gem className="text-primary-foreground text-sm" size={16} />
+            </div>
+            <div>
+              <h1 className="text-xl font-semibold text-foreground">Ruby File Scanner</h1>
+              <p className="text-sm text-muted-foreground">Directory Explorer & File Analysis Tool</p>
+            </div>
+          </div>
+          <div className="flex items-center space-x-3">
+            <button 
+              className="px-4 py-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+              data-testid="button-settings"
+            >
+              <Settings className="mr-2" size={16} />
+              Settings
+            </button>
+            <button 
+              className="px-4 py-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+              data-testid="button-help"
+            >
+              <HelpCircle className="mr-2" size={16} />
+              Help
+            </button>
+          </div>
+        </div>
+      </header>
+
+      <div className="flex h-screen pt-16">
+        {/* Sidebar */}
+        <aside className="w-80 bg-card border-r border-border overflow-hidden flex flex-col">
+          <ScanControls 
+            currentScan={currentScan} 
+            onScanStart={setCurrentScan}
+            onExport={() => setIsExportModalOpen(true)}
+          />
+        </aside>
+
+        {/* Main Content */}
+        <main className="flex-1 overflow-hidden flex flex-col">
+          <FileList currentScan={currentScan} />
+        </main>
+      </div>
+
+      {/* Export Modal */}
+      <ExportModal 
+        isOpen={isExportModalOpen} 
+        onClose={() => setIsExportModalOpen(false)}
+        scanId={currentScan?.id}
+      />
+    </>
+  );
+}
