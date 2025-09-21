@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Gem, Settings, HelpCircle } from "lucide-react";
 import { ScanControls } from "./scan-controls.tsx";
 import { FileList } from "./file-list.tsx";
@@ -8,6 +9,27 @@ import type { ScanSession } from "@shared/schema";
 export function FileScanner() {
   const [currentScan, setCurrentScan] = useState<ScanSession | null>(null);
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
+
+  // Auto-load the most recent scan on page load
+  const { data: scans = [] } = useQuery<ScanSession[]>({
+    queryKey: ["/api/scans"],
+    queryFn: async () => {
+      const response = await fetch("/api/scans");
+      if (!response.ok) {
+        throw new Error("Failed to fetch scans");
+      }
+      return response.json();
+    },
+  });
+
+  // Set the most recent completed scan as current when scans are loaded
+  useEffect(() => {
+    if (scans.length > 0 && !currentScan) {
+      const mostRecentScan = scans.find(scan => scan.status === "completed") || scans[0];
+      setCurrentScan(mostRecentScan);
+      console.log('FileScanner: Auto-loaded scan:', mostRecentScan.id);
+    }
+  }, [scans, currentScan]);
 
   return (
     <>

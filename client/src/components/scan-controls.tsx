@@ -54,22 +54,78 @@ export function ScanControls({ currentScan, onScanStart, onExport }: ScanControl
     },
   });
 
-  const handleDirectorySelect = () => {
-    // Since we can't access file system directly in browser, use input
-    const input = document.createElement('input');
-    input.type = 'text';
-    input.placeholder = 'Enter directory path (e.g., /path/to/project)';
-    input.className = 'w-full p-2 border rounded';
-    
+  const handleDirectorySelect = async () => {
+    // Enhanced input modal for server-side directory selection
     const modal = document.createElement('div');
     modal.className = 'fixed inset-0 bg-black/50 flex items-center justify-center z-50';
+    
+    // Get recent directories from localStorage
+    const recentPaths = JSON.parse(localStorage.getItem('recentDirectories') || '[]');
+    
+    const commonPaths = [
+      ...recentPaths.slice(0, 3), // Show top 3 recent paths first
+      './',
+      '../',
+      './src',
+      './client',
+      './server',
+      'C:\\Users',
+      'C:\\Projects',
+      'C:\\Development',
+      '/home',
+      '/Users',
+      '/workspace',
+      '/tmp'
+    ].filter((path, index, arr) => arr.indexOf(path) === index); // Remove duplicates
+    
     modal.innerHTML = `
-      <div class="bg-white p-6 rounded-lg shadow-xl max-w-md w-full mx-4">
-        <h3 class="text-lg font-semibold mb-4">Enter Directory Path</h3>
-        <input type="text" placeholder="Enter directory path (e.g., /path/to/project)" class="w-full p-2 border rounded mb-4" id="directory-input">
+      <div class="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-xl max-w-lg w-full mx-4">
+        <h3 class="text-lg font-semibold mb-4 text-gray-900 dark:text-white">Select Server Directory</h3>
+        
+        <div class="mb-4 p-3 bg-yellow-50 dark:bg-yellow-900/30 rounded-md">
+          <p class="text-sm text-yellow-800 dark:text-yellow-200">
+            <strong>⚠️ Important:</strong> This scans directories on the server, not your local machine. 
+            Enter paths accessible to the server environment.
+          </p>
+        </div>
+        
+        <div class="mb-4">
+          <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Enter server directory path:</label>
+          <input 
+            type="text" 
+            placeholder="Enter server path (e.g., ./ for current directory)" 
+            class="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white" 
+            id="directory-input"
+            data-testid="input-directory-path"
+          >
+        </div>
+        
+        <div class="mb-4">
+          <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Quick select paths:</label>
+          <div class="grid grid-cols-2 gap-2 max-h-40 overflow-y-auto">
+            ${commonPaths.map((path, index) => 
+              `<button class="text-left p-2 text-sm bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 rounded border text-gray-700 dark:text-gray-300 common-path-btn" data-path="${path}" data-testid="button-path-${index}">${path}${recentPaths.includes(path) ? ' (recent)' : ''}</button>`
+            ).join('')}
+          </div>
+        </div>
+        
+        <div class="mb-4 p-3 bg-blue-50 dark:bg-blue-900/30 rounded-md">
+          <p class="text-sm text-blue-800 dark:text-blue-200">
+            <strong>Server Path Examples:</strong><br>
+            • Current directory: <code>./</code><br>
+            • Parent directory: <code>../</code><br>
+            • Specific folder: <code>./my-project</code><br>
+            • Absolute path: <code>/workspace/project</code>
+          </p>
+        </div>
+        
         <div class="flex gap-2">
-          <button class="px-4 py-2 bg-primary text-primary-foreground rounded hover:bg-primary/90" id="confirm-btn">Confirm</button>
-          <button class="px-4 py-2 bg-secondary text-secondary-foreground rounded hover:bg-secondary/80" id="cancel-btn">Cancel</button>
+          <button class="flex-1 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors" id="confirm-btn" data-testid="button-confirm-directory">
+            Select Directory
+          </button>
+          <button class="px-4 py-2 bg-gray-300 dark:bg-gray-600 text-gray-700 dark:text-gray-300 rounded hover:bg-gray-400 dark:hover:bg-gray-500 transition-colors" id="cancel-btn" data-testid="button-cancel-directory">
+            Cancel
+          </button>
         </div>
       </div>
     `;
@@ -79,25 +135,52 @@ export function ScanControls({ currentScan, onScanStart, onExport }: ScanControl
     const confirmBtn = modal.querySelector('#confirm-btn');
     const cancelBtn = modal.querySelector('#cancel-btn');
     const directoryInput = modal.querySelector('#directory-input') as HTMLInputElement;
+    const commonPathBtns = modal.querySelectorAll('.common-path-btn');
     
+    // Handle common path button clicks
+    commonPathBtns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        const path = btn.getAttribute('data-path') || '';
+        directoryInput.value = path;
+      });
+    });
+    
+    // Handle confirm
     confirmBtn?.addEventListener('click', () => {
       const path = directoryInput.value.trim();
       if (path) {
         setSelectedDirectory(path);
         setScanOptions(prev => ({ ...prev, directory: path }));
+        
+        // Store in localStorage for future suggestions
+        const recentPaths = JSON.parse(localStorage.getItem('recentDirectories') || '[]');
+        const updatedPaths = [path, ...recentPaths.filter((p: string) => p !== path)].slice(0, 5);
+        localStorage.setItem('recentDirectories', JSON.stringify(updatedPaths));
       }
       document.body.removeChild(modal);
     });
     
+    // Handle cancel
     cancelBtn?.addEventListener('click', () => {
       document.body.removeChild(modal);
     });
     
+    // Handle click outside modal
     modal.addEventListener('click', (e) => {
       if (e.target === modal) {
         document.body.removeChild(modal);
       }
     });
+    
+    // Handle Enter key
+    directoryInput.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        (confirmBtn as HTMLButtonElement)?.click();
+      }
+    });
+    
+    // Focus input
+    setTimeout(() => directoryInput.focus(), 100);
   };
 
   const handleScanStart = () => {
