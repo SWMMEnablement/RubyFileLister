@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Search, FileCode2, Eye, Copy, ChevronLeft, ChevronRight, SortAsc } from "lucide-react";
+import { Search, FileCode2, Eye, Copy, ChevronLeft, ChevronRight, SortAsc, SortDesc, ArrowUpDown } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
@@ -14,9 +14,14 @@ interface FileListProps {
   isLocalMode?: boolean;
 }
 
+type SortColumn = 'name' | 'path' | 'size' | 'modified';
+type SortDirection = 'asc' | 'desc' | 'none';
+
 export function FileList({ currentScan, localFiles = [], isLocalMode = false }: FileListProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [filterType, setFilterType] = useState("All Files");
+  const [sortColumn, setSortColumn] = useState<SortColumn>('name');
+  const [sortDirection, setSortDirection] = useState<SortDirection>('none');
   const { toast } = useToast();
 
   const { data: serverFiles = [], isLoading, error } = useQuery<ScannedFile[]>({
@@ -53,7 +58,61 @@ export function FileList({ currentScan, localFiles = [], isLocalMode = false }: 
   });
   
   // Use appropriate file source
-  const files = isLocalMode ? filteredLocalFiles : serverFiles;
+  const unsortedFiles = isLocalMode ? filteredLocalFiles : serverFiles;
+
+  // Handle sorting logic
+  const handleSort = (column: SortColumn) => {
+    if (sortColumn === column) {
+      // Cycle through: none -> asc -> desc -> none
+      setSortDirection(prev => {
+        if (prev === 'none') return 'asc';
+        if (prev === 'asc') return 'desc';
+        return 'none';
+      });
+    } else {
+      setSortColumn(column);
+      setSortDirection('asc');
+    }
+  };
+
+  // Apply sorting to files
+  const files = useMemo(() => {
+    if (sortDirection === 'none') {
+      return unsortedFiles;
+    }
+
+    const sortedFiles = [...unsortedFiles].sort((a, b) => {
+      let aValue: string | number;
+      let bValue: string | number;
+
+      switch (sortColumn) {
+        case 'name':
+          aValue = a.name.toLowerCase();
+          bValue = b.name.toLowerCase();
+          break;
+        case 'path':
+          aValue = (a.relativePath || a.path).toLowerCase();
+          bValue = (b.relativePath || b.path).toLowerCase();
+          break;
+        case 'size':
+          aValue = a.size;
+          bValue = b.size;
+          break;
+        case 'modified':
+          aValue = new Date(a.modified).getTime();
+          bValue = new Date(b.modified).getTime();
+          break;
+        default:
+          return 0;
+      }
+
+      if (aValue < bValue) return sortDirection === 'asc' ? -1 : 1;
+      if (aValue > bValue) return sortDirection === 'asc' ? 1 : -1;
+      return 0;
+    });
+
+    return sortedFiles;
+  }, [unsortedFiles, sortColumn, sortDirection]);
 
   console.log('FileList: Current scan:', currentScan?.id, 'Files:', files.length, 'Error:', error, 'IsLocalMode:', isLocalMode);
 
@@ -85,6 +144,14 @@ export function FileList({ currentScan, localFiles = [], isLocalMode = false }: 
     if (diffInHours < 24) return `${diffInHours} hours ago`;
     if (diffInHours < 48) return "1 day ago";
     return `${Math.floor(diffInHours / 24)} days ago`;
+  };
+
+  // Get appropriate sort icon
+  const getSortIcon = (column: SortColumn) => {
+    if (sortColumn !== column || sortDirection === 'none') {
+      return ArrowUpDown;
+    }
+    return sortDirection === 'asc' ? SortAsc : SortDesc;
   };
 
   const getStats = () => {
@@ -219,28 +286,56 @@ export function FileList({ currentScan, localFiles = [], isLocalMode = false }: 
                 <thead className="bg-muted">
                   <tr>
                     <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                      <div className="flex items-center space-x-1">
+                      <button 
+                        onClick={() => handleSort('name')}
+                        className="flex items-center space-x-1 hover:text-foreground transition-colors cursor-pointer"
+                        data-testid="sort-name"
+                      >
                         <span>File Name</span>
-                        <SortAsc className="text-xs" size={12} />
-                      </div>
+                        {(() => {
+                          const Icon = getSortIcon('name');
+                          return <Icon className="text-xs" size={12} />;
+                        })()}
+                      </button>
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                      <div className="flex items-center space-x-1">
+                      <button 
+                        onClick={() => handleSort('path')}
+                        className="flex items-center space-x-1 hover:text-foreground transition-colors cursor-pointer"
+                        data-testid="sort-path"
+                      >
                         <span>Path</span>
-                        <SortAsc className="text-xs" size={12} />
-                      </div>
+                        {(() => {
+                          const Icon = getSortIcon('path');
+                          return <Icon className="text-xs" size={12} />;
+                        })()}
+                      </button>
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                      <div className="flex items-center space-x-1">
+                      <button 
+                        onClick={() => handleSort('size')}
+                        className="flex items-center space-x-1 hover:text-foreground transition-colors cursor-pointer"
+                        data-testid="sort-size"
+                      >
                         <span>Size</span>
-                        <SortAsc className="text-xs" size={12} />
-                      </div>
+                        {(() => {
+                          const Icon = getSortIcon('size');
+                          return <Icon className="text-xs" size={12} />;
+                        })()}
+                      </button>
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                      <div className="flex items-center space-x-1">
+                      <button 
+                        onClick={() => handleSort('modified')}
+                        className="flex items-center space-x-1 hover:text-foreground transition-colors cursor-pointer"
+                        data-testid="sort-modified"
+                      >
                         <span>Modified</span>
-                        <SortAsc className="text-xs" size={12} />
-                      </div>
+                        {(() => {
+                          const Icon = getSortIcon('modified');
+                          return <Icon className="text-xs" size={12} />;
+                        })()}
+                      </button>
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Actions</th>
                   </tr>
