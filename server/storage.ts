@@ -35,7 +35,7 @@ export class MemStorage implements IStorage {
       foundFiles: insertSession.foundFiles || 0,
       includeSubdirectories: insertSession.includeSubdirectories ?? true,
       showHiddenFiles: insertSession.showHiddenFiles ?? false,
-      rubyFilesOnly: insertSession.rubyFilesOnly ?? true,
+      selectedLanguages: insertSession.selectedLanguages ?? ["ruby"],
     };
     this.scanSessions.set(id, session);
     return session;
@@ -47,7 +47,7 @@ export class MemStorage implements IStorage {
 
   async getAllScanSessions(): Promise<ScanSession[]> {
     return Array.from(this.scanSessions.values())
-      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime()); // Most recent first
+      .sort((a, b) => (b.createdAt?.getTime() ?? 0) - (a.createdAt?.getTime() ?? 0)); // Most recent first
   }
 
   async updateScanSession(id: string, updates: Partial<ScanSession>): Promise<ScanSession | undefined> {

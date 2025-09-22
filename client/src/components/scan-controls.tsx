@@ -45,7 +45,7 @@ export function ScanControls({
     directory: "",
     includeSubdirectories: true,
     showHiddenFiles: false,
-    rubyFilesOnly: false,
+    selectedLanguages: ["ruby"],
   });
   const { toast } = useToast();
   const localScanner = new LocalScanner();
@@ -117,6 +117,16 @@ export function ScanControls({
   };
 
   const handleScanStart = async () => {
+    // Validate that at least one language is selected
+    if (scanOptions.selectedLanguages.length === 0) {
+      toast({
+        title: "No Languages Selected",
+        description: "Please select at least one programming language to scan.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     if (scanMode === 'local') {
       await handleLocalScanStart();
     } else {
@@ -150,7 +160,7 @@ export function ScanControls({
         directory: selectedDirectory,
         includeSubdirectories: scanOptions.includeSubdirectories,
         showHiddenFiles: scanOptions.showHiddenFiles,
-        rubyFilesOnly: scanOptions.rubyFilesOnly,
+        selectedLanguages: scanOptions.selectedLanguages,
         status: 'scanning',
         totalFiles: 0,
         foundFiles: 0,
@@ -187,7 +197,7 @@ export function ScanControls({
           {
             includeSubdirectories: scanOptions.includeSubdirectories,
             showHiddenFiles: scanOptions.showHiddenFiles,
-            rubyFilesOnly: scanOptions.rubyFilesOnly
+            selectedLanguages: scanOptions.selectedLanguages
           },
           onProgress
         );
@@ -198,7 +208,7 @@ export function ScanControls({
           {
             includeSubdirectories: scanOptions.includeSubdirectories,
             showHiddenFiles: scanOptions.showHiddenFiles,
-            rubyFilesOnly: scanOptions.rubyFilesOnly
+            selectedLanguages: scanOptions.selectedLanguages
           },
           onProgress
         );
@@ -349,18 +359,40 @@ export function ScanControls({
                 Show hidden files
               </Label>
             </div>
-            <div className="flex items-center space-x-2">
-              <Checkbox 
-                id="rubyonly" 
-                checked={scanOptions.rubyFilesOnly}
-                onCheckedChange={(checked) => 
-                  setScanOptions(prev => ({ ...prev, rubyFilesOnly: !!checked }))
-                }
-                data-testid="checkbox-ruby-only"
-              />
-              <Label htmlFor="rubyonly" className="text-sm text-foreground">
-                Scan .rb files only
-              </Label>
+            <div className="space-y-2">
+              <Label className="text-sm text-foreground">Programming Languages</Label>
+              <div className="space-y-2">
+                {[
+                  { value: 'ruby' as const, label: 'Ruby (.rb)' },
+                  { value: 'python' as const, label: 'Python (.py, .pyw)' },
+                  { value: 'c' as const, label: 'C (.c, .h)' },
+                  { value: 'fortran' as const, label: 'Fortran (.f, .f90, .f95, etc.)' }
+                ].map((lang) => (
+                  <div key={lang.value} className="flex items-center space-x-2">
+                    <Checkbox 
+                      id={`lang-${lang.value}`}
+                      checked={scanOptions.selectedLanguages.includes(lang.value)}
+                      onCheckedChange={(checked) => {
+                        if (checked) {
+                          setScanOptions(prev => ({
+                            ...prev,
+                            selectedLanguages: [...prev.selectedLanguages, lang.value]
+                          }));
+                        } else {
+                          setScanOptions(prev => ({
+                            ...prev,
+                            selectedLanguages: prev.selectedLanguages.filter(l => l !== lang.value)
+                          }));
+                        }
+                      }}
+                      data-testid={`checkbox-lang-${lang.value}`}
+                    />
+                    <Label htmlFor={`lang-${lang.value}`} className="text-sm text-foreground">
+                      {lang.label}
+                    </Label>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
           

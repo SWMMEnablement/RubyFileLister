@@ -14,7 +14,7 @@ declare global {
 export interface ScanOptions {
   includeSubdirectories: boolean;
   showHiddenFiles: boolean;
-  rubyFilesOnly: boolean;
+  selectedLanguages: string[];
 }
 
 export interface ScanProgress {
@@ -37,6 +37,31 @@ export function isWebkitDirectorySupported(): boolean {
   return 'webkitdirectory' in input;
 }
 
+// Get supported file extensions for a language
+function getLanguageExtensions(language: string): string[] {
+  switch (language) {
+    case 'ruby': return ['rb'];
+    case 'python': return ['py', 'pyw'];
+    case 'c': return ['c', 'h'];
+    case 'fortran': return ['f', 'f90', 'f95', 'f03', 'f08', 'for', 'ftn'];
+    default: return [];
+  }
+}
+
+// Check if file matches selected languages
+function matchesSelectedLanguages(filename: string, selectedLanguages: string[]): boolean {
+  const ext = filename.toLowerCase().split('.').pop() || '';
+  
+  for (const language of selectedLanguages) {
+    const extensions = getLanguageExtensions(language);
+    if (extensions.includes(ext)) {
+      return true;
+    }
+  }
+  
+  return false;
+}
+
 // Get file type classification (reused from server logic)
 function getFileType(filename: string, isDirectory: boolean): string {
   if (isDirectory) return 'Directory';
@@ -55,13 +80,42 @@ function getFileType(filename: string, isDirectory: boolean): string {
     return 'Ruby File';
   }
   
+  // Python files
+  if (ext === 'py' || ext === 'pyw') {
+    if (basename.includes('test')) return 'Test';
+    if (basename.includes('model')) return 'Model';
+    if (basename.includes('view')) return 'View';
+    if (basename.includes('controller') || basename.includes('main')) return 'Controller';
+    if (basename.includes('util') || basename.includes('helper')) return 'Helper';
+    if (basename.includes('config')) return 'Configuration';
+    return 'Python File';
+  }
+  
+  // C files
+  if (ext === 'c' || ext === 'h') {
+    if (basename.includes('test')) return 'Test';
+    if (basename.includes('main')) return 'Controller';
+    if (basename.includes('util') || basename.includes('helper')) return 'Helper';
+    if (ext === 'h') return 'Header';
+    return 'C File';
+  }
+  
+  // Fortran files
+  if (['f', 'f90', 'f95', 'f03', 'f08', 'for', 'ftn'].includes(ext)) {
+    if (basename.includes('test')) return 'Test';
+    if (basename.includes('main') || basename.includes('program')) return 'Main Program';
+    if (basename.includes('module') || basename.includes('mod')) return 'Module';
+    if (basename.includes('sub') || basename.includes('function')) return 'Subroutine';
+    return 'Fortran File';
+  }
+  
   // Other file types
   const typeMap: Record<string, string> = {
     js: 'JavaScript', ts: 'TypeScript', jsx: 'JSX', tsx: 'TSX',
     html: 'HTML', css: 'CSS', scss: 'SCSS', sass: 'SASS',
     json: 'JSON', xml: 'XML', yaml: 'YAML', yml: 'YAML',
     md: 'Markdown', txt: 'Text', log: 'Log',
-    py: 'Python', java: 'Java', cpp: 'C++', c: 'C',
+    java: 'Java', cpp: 'C++', cc: 'C++', cxx: 'C++',
     php: 'PHP', go: 'Go', rs: 'Rust', swift: 'Swift'
   };
   
@@ -132,19 +186,17 @@ export async function scanDirectoryWithFSA(
           const dirPath = relativePath === './' ? name : `${relativePath}/${name}`;
           const fileType = getFileType(name, true);
           
-          // Add directory to results
-          if (!options.rubyFilesOnly) {
-            files.push({
-              id: crypto.randomUUID(),
-              scanId: '', // Will be set by parent component
-              name,
-              path: dirPath,
-              relativePath: dirPath,
-              size: 0,
-              type: fileType,
-              modified: new Date()
-            });
-          }
+          // Add directory to results (always include directories)
+          files.push({
+            id: crypto.randomUUID(),
+            scanId: '', // Will be set by parent component
+            name,
+            path: dirPath,
+            relativePath: dirPath,
+            size: 0,
+            type: fileType,
+            modified: new Date()
+          });
           
           // Recurse into subdirectories if requested
           if (options.includeSubdirectories) {
@@ -157,8 +209,8 @@ export async function scanDirectoryWithFSA(
           const filePath = relativePath === './' ? name : `${relativePath}/${name}`;
           const fileType = getFileType(name, false);
           
-          // Filter Ruby files if requested
-          if (options.rubyFilesOnly && !name.toLowerCase().endsWith('.rb')) {
+          // Filter files based on selected languages
+          if (options.selectedLanguages.length > 0 && !matchesSelectedLanguages(name, options.selectedLanguages)) {
             continue;
           }
           
@@ -257,8 +309,8 @@ export async function scanDirectoryWithWebkit(
     
     const fileType = getFileType(name, false);
     
-    // Filter Ruby files if requested
-    if (options.rubyFilesOnly && !name.toLowerCase().endsWith('.rb')) {
+    // Filter files based on selected languages
+    if (options.selectedLanguages.length > 0 && !matchesSelectedLanguages(name, options.selectedLanguages)) {
       continue;
     }
     

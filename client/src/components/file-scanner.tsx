@@ -48,8 +48,8 @@ export function FileScanner() {
               <Gem className="text-primary-foreground text-sm" size={16} />
             </div>
             <div>
-              <h1 className="text-xl font-semibold text-foreground">Ruby File Scanner</h1>
-              <p className="text-sm text-muted-foreground">Directory Explorer & File Analysis Tool</p>
+              <h1 className="text-xl font-semibold text-foreground">Multi-Language Code Scanner</h1>
+              <p className="text-sm text-muted-foreground">Scan & Analyze Ruby, Python, C, and Fortran Files</p>
             </div>
           </div>
           <div className="flex items-center space-x-3">

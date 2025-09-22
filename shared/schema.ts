@@ -19,7 +19,7 @@ export const scanSessions = pgTable("scan_sessions", {
   directory: text("directory").notNull(),
   includeSubdirectories: boolean("include_subdirectories").notNull().default(true),
   showHiddenFiles: boolean("show_hidden_files").notNull().default(false),
-  rubyFilesOnly: boolean("ruby_files_only").notNull().default(true),
+  selectedLanguages: text("selected_languages").array().notNull().default(sql`'{"ruby"}'`), // Array of language codes: ruby, python, c, fortran
   status: text("status").notNull().default("pending"), // "pending", "scanning", "completed", "error"
   totalFiles: integer("total_files").default(0),
   foundFiles: integer("found_files").default(0),
@@ -39,7 +39,7 @@ export const scanOptionsSchema = z.object({
   directory: z.string().min(1, "Directory path is required"),
   includeSubdirectories: z.boolean().default(true),
   showHiddenFiles: z.boolean().default(false),
-  rubyFilesOnly: z.boolean().default(true),
+  selectedLanguages: z.array(z.enum(["ruby", "python", "c", "fortran"])).min(1, "At least one language must be selected").default(["ruby"]),
 });
 
 export const exportOptionsSchema = z.object({

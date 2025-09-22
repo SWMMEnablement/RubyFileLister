@@ -6,12 +6,77 @@ import { z } from "zod";
 import fs from "fs/promises";
 import path from "path";
 
+// Get supported file extensions for a language
+function getLanguageExtensions(language: string): string[] {
+  switch (language) {
+    case 'ruby': return ['rb'];
+    case 'python': return ['py', 'pyw'];
+    case 'c': return ['c', 'h'];
+    case 'fortran': return ['f', 'f90', 'f95', 'f03', 'f08', 'for', 'ftn'];
+    default: return [];
+  }
+}
+
+// Check if file matches selected languages
+function matchesSelectedLanguages(filename: string, selectedLanguages: string[]): boolean {
+  const ext = filename.toLowerCase().split('.').pop() || '';
+  
+  for (const language of selectedLanguages) {
+    const extensions = getLanguageExtensions(language);
+    if (extensions.includes(ext)) {
+      return true;
+    }
+  }
+  
+  return false;
+}
+
 function getFileType(filePath: string): string {
   const fileName = path.basename(filePath).toLowerCase();
   const dirPath = path.dirname(filePath).toLowerCase();
-  const extension = path.extname(fileName).toLowerCase();
+  const extension = path.extname(fileName).toLowerCase().substring(1); // Remove leading dot
   
-  // Ruby on Rails patterns
+  // Language-specific file type classification
+  if (extension === 'rb') {
+    if (fileName.includes('model')) return 'Model';
+    if (fileName.includes('controller')) return 'Controller';
+    if (fileName.includes('view') || fileName.includes('erb')) return 'View';
+    if (fileName.includes('test') || fileName.includes('spec')) return 'Test';
+    if (fileName.includes('migration')) return 'Migration';
+    if (fileName.includes('helper')) return 'Helper';
+    return 'Ruby File';
+  }
+  
+  // Python files
+  if (extension === 'py' || extension === 'pyw') {
+    if (fileName.includes('test')) return 'Test';
+    if (fileName.includes('model')) return 'Model';
+    if (fileName.includes('view')) return 'View';
+    if (fileName.includes('controller') || fileName.includes('main')) return 'Controller';
+    if (fileName.includes('util') || fileName.includes('helper')) return 'Helper';
+    if (fileName.includes('config')) return 'Configuration';
+    return 'Python File';
+  }
+  
+  // C files
+  if (extension === 'c' || extension === 'h') {
+    if (fileName.includes('test')) return 'Test';
+    if (fileName.includes('main')) return 'Controller';
+    if (fileName.includes('util') || fileName.includes('helper')) return 'Helper';
+    if (extension === 'h') return 'Header';
+    return 'C File';
+  }
+  
+  // Fortran files
+  if (['f', 'f90', 'f95', 'f03', 'f08', 'for', 'ftn'].includes(extension)) {
+    if (fileName.includes('test')) return 'Test';
+    if (fileName.includes('main') || fileName.includes('program')) return 'Main Program';
+    if (fileName.includes('module') || fileName.includes('mod')) return 'Module';
+    if (fileName.includes('sub') || fileName.includes('function')) return 'Subroutine';
+    return 'Fortran File';
+  }
+  
+  // Directory-based patterns (for any project type)
   if (dirPath.includes('/models/') || dirPath.includes('\\models\\')) return "Model";
   if (dirPath.includes('/controllers/') || dirPath.includes('\\controllers\\')) return "Controller";
   if (dirPath.includes('/views/') || dirPath.includes('\\views\\')) return "View";
@@ -40,7 +105,7 @@ function getFileType(filePath: string): string {
   // Configuration patterns
   if (dirPath.includes('/config/') || dirPath.includes('\\config\\') ||
       fileName.includes('config') || fileName.includes('.config.') ||
-      extension === '.json' && (fileName.includes('package') || fileName.includes('tsconfig') || fileName.includes('vite.config'))) return "Configuration";
+      extension === 'json' && (fileName.includes('package') || fileName.includes('tsconfig') || fileName.includes('vite.config'))) return "Configuration";
       
   // Shared/Schema patterns  
   if (dirPath.includes('/shared/') || dirPath.includes('\\shared\\') ||
@@ -79,8 +144,8 @@ async function scanDirectory(
         } else if (entry.isFile()) {
           totalScanned++;
           
-          // Check if it's a Ruby file when rubyFilesOnly is true
-          if (options.rubyFilesOnly && !entry.name.endsWith('.rb')) {
+          // Filter files based on selected languages
+          if (options.selectedLanguages.length > 0 && !matchesSelectedLanguages(entry.name, options.selectedLanguages)) {
             continue;
           }
           
@@ -160,7 +225,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         directory: options.directory,
         includeSubdirectories: options.includeSubdirectories,
         showHiddenFiles: options.showHiddenFiles,
-        rubyFilesOnly: options.rubyFilesOnly,
+        selectedLanguages: options.selectedLanguages,
         status: "scanning",
         totalFiles: 0,
         foundFiles: 0,
