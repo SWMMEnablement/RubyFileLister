@@ -4,11 +4,15 @@ import { Gem, Settings, HelpCircle } from "lucide-react";
 import { ScanControls } from "./scan-controls.tsx";
 import { FileList } from "./file-list.tsx";
 import { ExportModal } from "./export-modal.tsx";
+import { SettingsModal } from "./settings-modal";
+import { HelpModal } from "./help-modal";
 import type { ScanSession, ScannedFile } from "@shared/schema";
 
 export function FileScanner() {
   const [currentScan, setCurrentScan] = useState<ScanSession | null>(null);
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
+  const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
+  const [isHelpModalOpen, setIsHelpModalOpen] = useState(false);
   const [scanMode, setScanMode] = useState<'local' | 'workspace'>('local');
   const [localFiles, setLocalFiles] = useState<ScannedFile[]>([]);
   const [localDirectoryHandle, setLocalDirectoryHandle] = useState<FileSystemDirectoryHandle | FileList | null>(null);
@@ -50,6 +54,7 @@ export function FileScanner() {
           </div>
           <div className="flex items-center space-x-3">
             <button 
+              onClick={() => setIsSettingsModalOpen(true)}
               className="px-4 py-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
               data-testid="button-settings"
             >
@@ -57,6 +62,7 @@ export function FileScanner() {
               Settings
             </button>
             <button 
+              onClick={() => setIsHelpModalOpen(true)}
               className="px-4 py-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
               data-testid="button-help"
             >
@@ -99,6 +105,16 @@ export function FileScanner() {
         localFiles={localFiles}
         isLocalMode={scanMode === 'local'}
         localDirectoryHandle={localDirectoryHandle}
+      />
+      
+      <SettingsModal 
+        isOpen={isSettingsModalOpen}
+        onClose={() => setIsSettingsModalOpen(false)}
+      />
+      
+      <HelpModal 
+        isOpen={isHelpModalOpen}
+        onClose={() => setIsHelpModalOpen(false)}
       />
     </>
   );

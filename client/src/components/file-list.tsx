@@ -105,10 +105,31 @@ export function FileList({ currentScan, localFiles = [], isLocalMode = false }: 
   if (!currentScan) {
     return (
       <div className="flex-1 flex items-center justify-center">
-        <div className="text-center">
+        <div className="text-center max-w-md">
           <FileCode2 className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
           <h3 className="text-lg font-semibold text-foreground mb-2">No Scan Active</h3>
-          <p className="text-muted-foreground">Select a directory and start a scan to view Ruby files.</p>
+          <p className="text-muted-foreground mb-4">To see files, follow these steps:</p>
+          <div className="text-left bg-muted/50 rounded-lg p-4 space-y-2">
+            <div className="flex items-center gap-3 text-sm">
+              <div className="w-6 h-6 bg-primary text-primary-foreground rounded-full flex items-center justify-center text-xs font-medium">1</div>
+              <span>Choose your scan mode (Local Computer or Workspace)</span>
+            </div>
+            <div className="flex items-center gap-3 text-sm">
+              <div className="w-6 h-6 bg-primary text-primary-foreground rounded-full flex items-center justify-center text-xs font-medium">2</div>
+              <span>Click "Choose Folder" to select a directory</span>
+            </div>
+            <div className="flex items-center gap-3 text-sm">
+              <div className="w-6 h-6 bg-primary text-primary-foreground rounded-full flex items-center justify-center text-xs font-medium">3</div>
+              <span>Click "Start Scan" to find files</span>
+            </div>
+            <div className="flex items-center gap-3 text-sm">
+              <div className="w-6 h-6 bg-primary text-primary-foreground rounded-full flex items-center justify-center text-xs font-medium">4</div>
+              <span>Export results or save all files to one text file!</span>
+            </div>
+          </div>
+          <p className="text-xs text-muted-foreground mt-4">
+            💡 <strong>New feature:</strong> Use "Concatenated Files" export to save all file contents in one text file!
+          </p>
         </div>
       </div>
     );

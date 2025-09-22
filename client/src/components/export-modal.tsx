@@ -88,29 +88,43 @@ export function ExportModal({ isOpen, onClose, scanId, localFiles = [], isLocalM
 
     const fileContents: {name: string, content: string, path: string}[] = [];
     
+    // Pre-index FileList for O(1) lookups instead of O(n^2)
+    let fileMap: Map<string, File> | null = null;
+    if (localDirectoryHandle instanceof FileList) {
+      fileMap = new Map();
+      for (let i = 0; i < localDirectoryHandle.length; i++) {
+        const listFile = localDirectoryHandle[i];
+        fileMap.set(listFile.webkitRelativePath, listFile);
+      }
+    }
+    
     for (const file of files) {
       try {
         let fileHandle: FileSystemFileHandle | null = null;
         
-        if (localDirectoryHandle instanceof FileList) {
-          // Find file in FileList by relative path
-          for (let i = 0; i < localDirectoryHandle.length; i++) {
-            const listFile = localDirectoryHandle[i];
-            if (listFile.webkitRelativePath === file.path.replace('./', '')) {
-              const fileObj = await new Promise<File>((resolve) => resolve(listFile));
-              const content = await fileObj.text();
-              fileContents.push({
-                name: file.name,
-                content: content,
-                path: file.path
-              });
-              break;
-            }
+        if (localDirectoryHandle instanceof FileList && fileMap) {
+          // Use O(1) lookup instead of O(n) search
+          const normalizedPath = file.path.replace(/^\.\//, '');
+          const listFile = fileMap.get(normalizedPath);
+          if (listFile) {
+            const content = await listFile.text();
+            fileContents.push({
+              name: file.name,
+              content: content,
+              path: file.path
+            });
+          } else {
+            console.warn(`File not found in FileList: ${normalizedPath}`);
+            fileContents.push({
+              name: file.name,
+              content: `[File not found: ${file.path}]`,
+              path: file.path
+            });
           }
         } else {
           // Navigate through directory structure to find file
           const pathParts = file.path.replace('./', '').split('/');
-          let currentHandle: FileSystemDirectoryHandle = localDirectoryHandle;
+          let currentHandle: FileSystemDirectoryHandle = localDirectoryHandle as FileSystemDirectoryHandle;
           
           // Navigate to the directory containing the file
           for (let i = 0; i < pathParts.length - 1; i++) {
@@ -248,7 +262,17 @@ export function ExportModal({ isOpen, onClose, scanId, localFiles = [], isLocalM
       if (localFiles.length === 0) {
         toast({
           title: "No Files to Export",
-          description: "No files available for export.",
+          description: "Please scan a directory first to find files.",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      // Special validation for concatenated export
+      if (exportOptions.format === 'concatenated' && !localDirectoryHandle) {
+        toast({
+          title: "Cannot Read File Contents",
+          description: "Directory handle not available. Please select a local folder and scan again.",
           variant: "destructive",
         });
         return;
@@ -298,18 +322,29 @@ export function ExportModal({ isOpen, onClose, scanId, localFiles = [], isLocalM
       }
     } else {
       // Server-side export for workspace files
+      
+      // Block concatenated export in workspace mode
+      if (exportOptions.format === 'concatenated') {
+        toast({
+          title: "Feature Not Available",
+          description: "Concatenated file export is only available in Local Computer mode.",
+          variant: "destructive",
+        });
+        return;
+      }
+      
       if (!scanId) {
         toast({
           title: "No Scan Data",
-          description: "No scan data available for export.",
+          description: "Please complete a scan first before exporting.",
           variant: "destructive",
         });
         return;
       }
 
-      // Filter out concatenated format for server export (local-only)
+      // Server export for standard formats
       const serverOptions: ExportOptions = {
-        format: exportOptions.format === 'concatenated' ? 'txt' : exportOptions.format as "txt" | "csv" | "json",
+        format: exportOptions.format as "txt" | "csv" | "json",
         filename: exportOptions.filename,
         includePaths: exportOptions.includePaths,
         includeSizes: exportOptions.includeSizes,

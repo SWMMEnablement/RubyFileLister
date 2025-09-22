@@ -409,6 +409,19 @@ export function ScanControls({
       {/* Export Section */}
       <div className="p-6 mt-auto">
         <div className="space-y-3">
+          {scanMode === 'local' && currentScan?.status === 'completed' && (
+            <div className="bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 rounded-lg p-3 mb-3">
+              <div className="flex items-start gap-2">
+                <div className="text-green-600 dark:text-green-400 text-lg">💡</div>
+                <div>
+                  <p className="text-sm font-medium text-green-800 dark:text-green-200">New Feature Available!</p>
+                  <p className="text-xs text-green-700 dark:text-green-300">
+                    Use "Concatenated Files" export to save all file contents in one text file with custom filename.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
           <h3 className="text-sm font-medium text-foreground">Export Results</h3>
           <div className="grid grid-cols-2 gap-2">
             <Button 
