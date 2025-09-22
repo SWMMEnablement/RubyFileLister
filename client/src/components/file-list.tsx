@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Search, FileCode2, Eye, Copy, ChevronLeft, ChevronRight, SortAsc, SortDesc, ArrowUpDown } from "lucide-react";
+import { Search, FileCode2, Eye, Copy, ChevronLeft, ChevronRight, SortAsc, SortDesc, ArrowUpDown, GitCommit, ExternalLink } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
@@ -337,19 +337,25 @@ export function FileList({ currentScan, localFiles = [], isLocalMode = false }: 
                         })()}
                       </button>
                     </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                      <div className="flex items-center space-x-1">
+                        <GitCommit size={12} />
+                        <span>Git Commit</span>
+                      </div>
+                    </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="bg-card divide-y divide-border">
                   {isLoading ? (
                     <tr>
-                      <td colSpan={5} className="px-6 py-4 text-center text-muted-foreground">
+                      <td colSpan={6} className="px-6 py-4 text-center text-muted-foreground">
                         Loading files...
                       </td>
                     </tr>
                   ) : files.length === 0 ? (
                     <tr>
-                      <td colSpan={5} className="px-6 py-4 text-center text-muted-foreground">
+                      <td colSpan={6} className="px-6 py-4 text-center text-muted-foreground">
                         No files found matching your criteria.
                       </td>
                     </tr>
@@ -383,6 +389,38 @@ export function FileList({ currentScan, localFiles = [], isLocalMode = false }: 
                           <div className="text-sm text-muted-foreground" data-testid={`text-filemodified-${file.id}`}>
                             {formatModifiedDate(file.modified)}
                           </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          {file.commitAuthor ? (
+                            <div className="text-sm" data-testid={`text-commit-${file.id}`}>
+                              <div className="flex items-center space-x-2">
+                                <div className="text-foreground font-medium">{file.commitAuthor}</div>
+                                {file.githubUrl && (
+                                  <a 
+                                    href={file.githubUrl} 
+                                    target="_blank" 
+                                    rel="noopener noreferrer"
+                                    className="text-primary hover:text-primary/80"
+                                    data-testid={`link-commit-${file.id}`}
+                                  >
+                                    <ExternalLink size={12} />
+                                  </a>
+                                )}
+                              </div>
+                              <div className="text-xs text-muted-foreground truncate max-w-48" title={file.commitMessage || ''}>
+                                {file.commitMessage}
+                              </div>
+                              {file.commitDate && (
+                                <div className="text-xs text-muted-foreground">
+                                  {formatModifiedDate(file.commitDate)}
+                                </div>
+                              )}
+                            </div>
+                          ) : (
+                            <div className="text-xs text-muted-foreground" data-testid={`text-no-commit-${file.id}`}>
+                              No commit info
+                            </div>
+                          )}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="flex items-center space-x-2">

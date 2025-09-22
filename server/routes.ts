@@ -6,6 +6,7 @@ import { z } from "zod";
 import fs from "fs/promises";
 import path from "path";
 import { GitHubService } from "./lib/github-service";
+import { randomUUID } from "crypto";
 
 // Get supported file extensions for a language
 function getLanguageExtensions(language: string): string[] {
@@ -123,8 +124,38 @@ async function scanDirectory(
   dirPath: string, 
   options: z.infer<typeof scanOptionsSchema>,
   onProgress?: (current: number, found: number) => void
-): Promise<{ files: Array<{ name: string; path: string; relativePath: string; size: number; modified: Date; type: string }>, totalScanned: number }> {
-  const files: Array<{ name: string; path: string; relativePath: string; size: number; modified: Date; type: string }> = [];
+): Promise<{ files: Array<{ 
+  id: string; 
+  name: string; 
+  path: string; 
+  relativePath: string; 
+  size: number; 
+  modified: Date; 
+  type: string; 
+  scanId: string;
+  commitAuthor: string | null;
+  commitEmail: string | null;
+  commitHash: string | null;
+  commitMessage: string | null;
+  commitDate: Date | null;
+  githubUrl: string | null;
+}>, totalScanned: number }> {
+  const files: Array<{ 
+    id: string; 
+    name: string; 
+    path: string; 
+    relativePath: string; 
+    size: number; 
+    modified: Date; 
+    type: string; 
+    scanId: string;
+    commitAuthor: string | null;
+    commitEmail: string | null;
+    commitHash: string | null;
+    commitMessage: string | null;
+    commitDate: Date | null;
+    githubUrl: string | null;
+  }> = [];
   let totalScanned = 0;
 
   async function scanRecursive(currentPath: string, basePath: string) {
@@ -153,12 +184,20 @@ async function scanDirectory(
           try {
             const stats = await fs.stat(fullPath);
             const fileInfo = {
+              id: randomUUID(),
               name: entry.name,
               path: fullPath,
               relativePath: relativePath.startsWith('.') ? relativePath : `./${relativePath}`,
               size: stats.size,
               modified: stats.mtime,
-              type: getFileType(fullPath)
+              type: getFileType(fullPath),
+              scanId: '', // Will be set when files are saved
+              commitAuthor: null,
+              commitEmail: null,
+              commitHash: null,
+              commitMessage: null,
+              commitDate: null,
+              githubUrl: null
             };
             
             files.push(fileInfo);

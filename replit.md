@@ -51,6 +51,11 @@ Preferred communication style: Simple, everyday language.
 - **Neon Database**: Serverless PostgreSQL hosting
 - **Connection**: @neondatabase/serverless driver
 
+## GitHub Integration
+- **GitHub API**: Personal access token for fetching commit information
+- **Repository Detection**: Automatic detection of GitHub repositories from directory paths
+- **Commit Information**: Displays author, commit message, date, and GitHub URL for files
+
 ## UI Framework
 - **Radix UI**: Comprehensive component primitives library
 - **Tailwind CSS**: Utility-first CSS framework
