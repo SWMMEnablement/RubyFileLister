@@ -121,26 +121,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const options = scanOptionsSchema.parse(req.body);
       
-      // Security validation - prevent scanning sensitive system directories
+      // Security validation - normalize and check if path is within allowed boundaries
+      const normalizedPath = path.normalize(options.directory);
+      const resolvedPath = path.resolve(normalizedPath);
+      const workspacePath = path.resolve('./');
+      
+      // Allow paths within the current workspace or explicitly allowed directories
       const allowedPathPrefixes = [
-        // Unix/Linux paths
-        '/home', '/workspace', '/tmp', './',
-        // Windows paths
+        '/home', '/workspace', '/tmp',
         'C:\\Users', 'D:\\', 'E:\\', 'F:\\', 'G:\\',
-        // Allow any drive letter with Users folder
-        /^[A-Z]:\\Users/i,
-        // Allow relative paths
-        /^\.[\\/]/
+        /^[A-Z]:\\Users/i
       ];
       
-      const isAllowedPath = allowedPathPrefixes.some(prefix => {
+      const isWithinWorkspace = resolvedPath.startsWith(workspacePath);
+      const isExplicitlyAllowed = allowedPathPrefixes.some(prefix => {
         if (typeof prefix === 'string') {
-          return options.directory.startsWith(prefix) || options.directory.startsWith(path.resolve(prefix));
+          return normalizedPath.startsWith(prefix) || resolvedPath.startsWith(path.resolve(prefix));
         } else {
-          // Handle regex patterns
-          return prefix.test(options.directory);
+          return prefix.test(normalizedPath);
         }
       });
+      
+      const isAllowedPath = isWithinWorkspace || isExplicitlyAllowed;
       
       if (!isAllowedPath) {
         return res.status(403).json({ message: "Directory access not permitted" });
@@ -199,6 +201,72 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       console.error("Scan start error:", error);
       res.status(500).json({ message: "Failed to start scan" });
+    }
+  });
+  
+  // Browse directories for folder selection
+  app.get("/api/browse", async (req, res) => {
+    try {
+      const { path: browsePath = "./" } = req.query;
+      const targetPath = browsePath as string;
+      
+      // Security validation - normalize and check if path is within allowed boundaries
+      const normalizedPath = path.normalize(targetPath);
+      const resolvedPath = path.resolve(normalizedPath);
+      const workspacePath = path.resolve('./');
+      
+      // Allow paths within the current workspace or explicitly allowed directories
+      const allowedPathPrefixes = [
+        '/home', '/workspace', '/tmp',
+        'C:\\Users', 'D:\\', 'E:\\', 'F:\\', 'G:\\',
+        /^[A-Z]:\\Users/i
+      ];
+      
+      const isWithinWorkspace = resolvedPath.startsWith(workspacePath);
+      const isExplicitlyAllowed = allowedPathPrefixes.some(prefix => {
+        if (typeof prefix === 'string') {
+          return normalizedPath.startsWith(prefix) || resolvedPath.startsWith(path.resolve(prefix));
+        } else {
+          return prefix.test(normalizedPath);
+        }
+      });
+      
+      const isAllowedPath = isWithinWorkspace || isExplicitlyAllowed;
+      
+      if (!isAllowedPath) {
+        return res.status(403).json({ message: "Directory access not permitted" });
+      }
+      
+      // Check if directory exists
+      try {
+        await fs.access(targetPath);
+        const stat = await fs.stat(targetPath);
+        if (!stat.isDirectory()) {
+          return res.status(400).json({ message: "Path is not a directory" });
+        }
+      } catch {
+        return res.status(400).json({ message: "Directory does not exist or is not accessible" });
+      }
+      
+      // Read directory contents
+      const entries = await fs.readdir(targetPath, { withFileTypes: true });
+      const directories = entries
+        .filter(entry => entry.isDirectory() && !entry.name.startsWith('.'))
+        .map(entry => ({
+          name: entry.name,
+          path: path.join(targetPath, entry.name),
+          relativePath: path.relative('./', path.join(targetPath, entry.name))
+        }))
+        .sort((a, b) => a.name.localeCompare(b.name));
+      
+      res.json({
+        currentPath: targetPath,
+        parentPath: targetPath !== './' ? path.dirname(targetPath) : null,
+        directories
+      });
+    } catch (error) {
+      console.error("Browse error:", error);
+      res.status(500).json({ message: "Failed to browse directory" });
     }
   });
   
