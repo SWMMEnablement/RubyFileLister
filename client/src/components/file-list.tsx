@@ -322,7 +322,7 @@ export function FileList({ currentScan, localFiles = [], isLocalMode = false }: 
               <div className="bg-muted px-6 py-3 border-t border-border">
                 <div className="flex items-center justify-between">
                   <div className="text-sm text-muted-foreground">
-                    Showing <span className="font-medium">1</span> to <span className="font-medium">{Math.min(files.length, 50)}</span> of <span className="font-medium">{files.length}</span> results
+                    Showing <span className="font-medium">all {files.length}</span> results
                   </div>
                   <div className="flex items-center space-x-2">
                     <Button variant="ghost" size="sm" disabled data-testid="button-prev-page">
