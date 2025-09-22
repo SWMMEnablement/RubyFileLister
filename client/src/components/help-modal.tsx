@@ -48,7 +48,7 @@ export function HelpModal({ isOpen, onClose }: HelpModalProps) {
                 <div className="w-6 h-6 bg-primary text-primary-foreground rounded-full flex items-center justify-center text-sm font-medium">3</div>
                 <div>
                   <p className="text-sm font-medium">Configure Options</p>
-                  <p className="text-xs text-muted-foreground">Set scan options (subdirectories, hidden files, Ruby files only)</p>
+                  <p className="text-xs text-muted-foreground">Set scan options (subdirectories, hidden files, selected programming languages)</p>
                 </div>
               </div>
               <div className="flex items-start gap-3">
@@ -165,7 +165,7 @@ export function HelpModal({ isOpen, onClose }: HelpModalProps) {
               <li><strong>2.</strong> Select a directory and complete a scan</li>
               <li><strong>3.</strong> Click any Export button (.TXT, .CSV, or Export as JSON)</li>
               <li><strong>4.</strong> In the export modal, select "Concatenated Files" from the format dropdown</li>
-              <li><strong>5.</strong> Enter your desired filename (e.g., "all_my_ruby_files")</li>
+              <li><strong>5.</strong> Enter your desired filename (e.g., "all_my_code_files")</li>
               <li><strong>6.</strong> Click "Export" - the file will download with all your file contents combined!</li>
             </ol>
           </div>

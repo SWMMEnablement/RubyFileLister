@@ -27,7 +27,7 @@ interface ExportModalProps {
 export function ExportModal({ isOpen, onClose, scanId, localFiles = [], isLocalMode = false, localDirectoryHandle = null }: ExportModalProps) {
   const [exportOptions, setExportOptions] = useState<ExtendedExportOptions>({
     format: "txt",
-    filename: "ruby_files_export",
+    filename: "code_files_export",
     includePaths: true,
     includeSizes: true,
     includeModified: false,
@@ -176,7 +176,7 @@ export function ExportModal({ isOpen, onClose, scanId, localFiles = [], isLocalM
     
     switch (options.format) {
       case 'txt':
-        let txtContent = `Ruby Files Export\n`;
+        let txtContent = `Code Files Export\n`;
         txtContent += `Generated: ${new Date().toLocaleString()}\n`;
         txtContent += `Total Files: ${files.length}\n\n`;
         
@@ -360,7 +360,7 @@ export function ExportModal({ isOpen, onClose, scanId, localFiles = [], isLocalM
       <DialogContent className="w-full max-w-md" data-testid="modal-export">
         <DialogHeader>
           <DialogTitle className="flex items-center justify-between">
-            Export Ruby Files List
+            Export Code Files List
             <Button variant="ghost" size="sm" onClick={onClose} data-testid="button-close-modal">
               <X size={16} />
             </Button>

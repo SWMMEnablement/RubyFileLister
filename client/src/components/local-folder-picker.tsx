@@ -189,7 +189,7 @@ export function LocalFolderPicker({ isOpen, onClose, onSelect }: LocalFolderPick
               <h4 className="font-medium text-blue-900 dark:text-blue-100 mb-1">What happens next?</h4>
               <ul className="text-sm text-blue-700 dark:text-blue-300 space-y-1">
                 <li>• Your files stay on your computer - nothing is uploaded</li>
-                <li>• We'll scan for Ruby files and analyze the structure</li>
+                <li>• We'll scan for code files and analyze the structure</li>
                 <li>• You can filter, search, and export the results</li>
                 <li>• All processing happens in your browser</li>
               </ul>

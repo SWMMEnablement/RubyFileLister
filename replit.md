@@ -1,6 +1,6 @@
 # Overview
 
-This is a Ruby File Scanner web application built with a full-stack TypeScript architecture. The application allows users to scan directories for Ruby files, analyze file structures, and export results in multiple formats. It features a modern React frontend with shadcn/ui components and an Express.js backend with PostgreSQL database integration.
+This is a Just Counting GitHub File Scanner web application built with a full-stack TypeScript architecture. The application allows users to scan directories for code files, analyze file structures, and export results in multiple formats. It supports Ruby, Python, C, and Fortran files and features a modern React frontend with shadcn/ui components and an Express.js backend with PostgreSQL database integration.
 
 # User Preferences
 

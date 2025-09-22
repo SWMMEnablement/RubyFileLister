@@ -188,7 +188,7 @@ export function FileList({ currentScan, localFiles = [], isLocalMode = false }: 
                   <div className="text-2xl font-bold text-primary" data-testid="stat-ruby-files">
                     {stats.rubyFiles}
                   </div>
-                  <div className="text-sm text-muted-foreground">Ruby Files</div>
+                  <div className="text-sm text-muted-foreground">Code Files</div>
                 </div>
                 <div className="text-center">
                   <div className="text-2xl font-bold text-foreground" data-testid="stat-directories">

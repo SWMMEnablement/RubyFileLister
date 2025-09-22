@@ -72,7 +72,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
               </div>
               <div className="flex justify-between">
                 <span>Build:</span>
-                <span>Ruby File Scanner</span>
+                <span>Just Counting GitHub File Scanner</span>
               </div>
               <div className="flex justify-between">
                 <span>Mode:</span>
