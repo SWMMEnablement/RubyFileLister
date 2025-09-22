@@ -10,16 +10,22 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import type { ExportOptions, ScannedFile } from "@shared/schema";
 
+// Extended export options that includes concatenated format
+type ExtendedExportOptions = Omit<ExportOptions, 'format'> & {
+  format: "txt" | "csv" | "json" | "concatenated";
+};
+
 interface ExportModalProps {
   isOpen: boolean;
   onClose: () => void;
   scanId?: string;
   localFiles?: ScannedFile[];
   isLocalMode?: boolean;
+  localDirectoryHandle?: FileSystemDirectoryHandle | FileList | null;
 }
 
-export function ExportModal({ isOpen, onClose, scanId, localFiles = [], isLocalMode = false }: ExportModalProps) {
-  const [exportOptions, setExportOptions] = useState<ExportOptions>({
+export function ExportModal({ isOpen, onClose, scanId, localFiles = [], isLocalMode = false, localDirectoryHandle = null }: ExportModalProps) {
+  const [exportOptions, setExportOptions] = useState<ExtendedExportOptions>({
     format: "txt",
     filename: "ruby_files_export",
     includePaths: true,
@@ -27,6 +33,7 @@ export function ExportModal({ isOpen, onClose, scanId, localFiles = [], isLocalM
     includeModified: false,
     scanId: scanId || "",
   });
+  const [isReadingFiles, setIsReadingFiles] = useState(false);
   const { toast } = useToast();
 
   const exportMutation = useMutation({
@@ -74,7 +81,82 @@ export function ExportModal({ isOpen, onClose, scanId, localFiles = [], isLocalM
     },
   });
 
-  const generateClientSideExport = (files: ScannedFile[], options: ExportOptions): string => {
+  const readFileContents = async (files: ScannedFile[]): Promise<{name: string, content: string, path: string}[]> => {
+    if (!localDirectoryHandle) {
+      throw new Error('No directory handle available for reading files');
+    }
+
+    const fileContents: {name: string, content: string, path: string}[] = [];
+    
+    for (const file of files) {
+      try {
+        let fileHandle: FileSystemFileHandle | null = null;
+        
+        if (localDirectoryHandle instanceof FileList) {
+          // Find file in FileList by relative path
+          for (let i = 0; i < localDirectoryHandle.length; i++) {
+            const listFile = localDirectoryHandle[i];
+            if (listFile.webkitRelativePath === file.path.replace('./', '')) {
+              const fileObj = await new Promise<File>((resolve) => resolve(listFile));
+              const content = await fileObj.text();
+              fileContents.push({
+                name: file.name,
+                content: content,
+                path: file.path
+              });
+              break;
+            }
+          }
+        } else {
+          // Navigate through directory structure to find file
+          const pathParts = file.path.replace('./', '').split('/');
+          let currentHandle: FileSystemDirectoryHandle = localDirectoryHandle;
+          
+          // Navigate to the directory containing the file
+          for (let i = 0; i < pathParts.length - 1; i++) {
+            const dirName = pathParts[i];
+            try {
+              currentHandle = await currentHandle.getDirectoryHandle(dirName);
+            } catch (error) {
+              console.warn(`Could not access directory: ${dirName}`);
+              break;
+            }
+          }
+          
+          // Get the file handle
+          const fileName = pathParts[pathParts.length - 1];
+          try {
+            fileHandle = await currentHandle.getFileHandle(fileName);
+            const fileObj = await fileHandle.getFile();
+            const content = await fileObj.text();
+            fileContents.push({
+              name: file.name,
+              content: content,
+              path: file.path
+            });
+          } catch (error) {
+            console.warn(`Could not read file: ${fileName}`, error);
+            fileContents.push({
+              name: file.name,
+              content: `[Error reading file: ${error instanceof Error ? error.message : 'Unknown error'}]`,
+              path: file.path
+            });
+          }
+        }
+      } catch (error) {
+        console.warn(`Failed to read file ${file.name}:`, error);
+        fileContents.push({
+          name: file.name,
+          content: `[Error reading file: ${error instanceof Error ? error.message : 'Unknown error'}]`,
+          path: file.path
+        });
+      }
+    }
+    
+    return fileContents;
+  };
+  
+  const generateClientSideExport = (files: ScannedFile[], options: ExtendedExportOptions): string => {
     const formatFileSize = (bytes: number) => (bytes / 1024).toFixed(1) + " KB";
     const formatDate = (date: Date) => date.toLocaleDateString();
     
@@ -160,7 +242,7 @@ export function ExportModal({ isOpen, onClose, scanId, localFiles = [], isLocalM
     }
   };
 
-  const handleExport = () => {
+  const handleExport = async () => {
     if (isLocalMode) {
       // Client-side export for local files
       if (localFiles.length === 0) {
@@ -173,8 +255,33 @@ export function ExportModal({ isOpen, onClose, scanId, localFiles = [], isLocalM
       }
       
       try {
-        const content = generateClientSideExport(localFiles, exportOptions);
-        downloadClientSideExport(content, exportOptions.filename, exportOptions.format);
+        if (exportOptions.format === 'concatenated') {
+          // Special handling for concatenated file contents
+          setIsReadingFiles(true);
+          
+          const fileContents = await readFileContents(localFiles);
+          
+          let concatenatedContent = `File Contents Export\n`;
+          concatenatedContent += `Generated: ${new Date().toLocaleString()}\n`;
+          concatenatedContent += `Total Files: ${fileContents.length}\n`;
+          concatenatedContent += `${'='.repeat(80)}\n\n`;
+          
+          fileContents.forEach((file, index) => {
+            concatenatedContent += `${'='.repeat(80)}\n`;
+            concatenatedContent += `FILE ${index + 1}: ${file.name}\n`;
+            concatenatedContent += `Path: ${file.path}\n`;
+            concatenatedContent += `${'='.repeat(80)}\n\n`;
+            concatenatedContent += file.content;
+            concatenatedContent += `\n\n`;
+          });
+          
+          downloadClientSideExport(concatenatedContent, exportOptions.filename, 'txt');
+          setIsReadingFiles(false);
+        } else {
+          // Regular metadata export
+          const content = generateClientSideExport(localFiles, exportOptions);
+          downloadClientSideExport(content, exportOptions.filename, exportOptions.format);
+        }
         
         toast({
           title: "Export Successful",
@@ -182,9 +289,10 @@ export function ExportModal({ isOpen, onClose, scanId, localFiles = [], isLocalM
         });
         onClose();
       } catch (error) {
+        setIsReadingFiles(false);
         toast({
           title: "Export Failed",
-          description: "Failed to generate export file.",
+          description: error instanceof Error ? error.message : "Failed to generate export file.",
           variant: "destructive",
         });
       }
@@ -199,10 +307,16 @@ export function ExportModal({ isOpen, onClose, scanId, localFiles = [], isLocalM
         return;
       }
 
-      exportMutation.mutate({
-        ...exportOptions,
+      // Filter out concatenated format for server export (local-only)
+      const serverOptions: ExportOptions = {
+        format: exportOptions.format === 'concatenated' ? 'txt' : exportOptions.format as "txt" | "csv" | "json",
+        filename: exportOptions.filename,
+        includePaths: exportOptions.includePaths,
+        includeSizes: exportOptions.includeSizes,
+        includeModified: exportOptions.includeModified,
         scanId,
-      });
+      };
+      exportMutation.mutate(serverOptions);
     }
   };
 
@@ -225,7 +339,7 @@ export function ExportModal({ isOpen, onClose, scanId, localFiles = [], isLocalM
             </Label>
             <Select 
               value={exportOptions.format} 
-              onValueChange={(value: "txt" | "csv" | "json") => 
+              onValueChange={(value: "txt" | "csv" | "json" | "concatenated") => 
                 setExportOptions(prev => ({ ...prev, format: value }))
               }
             >
@@ -236,6 +350,9 @@ export function ExportModal({ isOpen, onClose, scanId, localFiles = [], isLocalM
                 <SelectItem value="txt">Plain Text (.txt)</SelectItem>
                 <SelectItem value="csv">Comma Separated (.csv)</SelectItem>
                 <SelectItem value="json">JSON Format (.json)</SelectItem>
+                <SelectItem value="concatenated" disabled={!isLocalMode}>
+                  Concatenated Files {!isLocalMode && "(Local mode only)"}
+                </SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -306,11 +423,11 @@ export function ExportModal({ isOpen, onClose, scanId, localFiles = [], isLocalM
           </Button>
           <Button 
             onClick={handleExport}
-            disabled={exportMutation.isPending}
+            disabled={exportMutation.isPending || isReadingFiles}
             data-testid="button-confirm-export"
           >
             <Download className="mr-2" size={16} />
-            {exportMutation.isPending ? "Exporting..." : "Export"}
+            {isReadingFiles ? "Reading Files..." : exportMutation.isPending ? "Exporting..." : "Export"}
           </Button>
         </div>
       </DialogContent>

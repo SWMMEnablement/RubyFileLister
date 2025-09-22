@@ -11,6 +11,7 @@ export function FileScanner() {
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
   const [scanMode, setScanMode] = useState<'local' | 'workspace'>('local');
   const [localFiles, setLocalFiles] = useState<ScannedFile[]>([]);
+  const [localDirectoryHandle, setLocalDirectoryHandle] = useState<FileSystemDirectoryHandle | FileList | null>(null);
 
   // Auto-load the most recent scan on page load
   const { data: scans = [] } = useQuery<ScanSession[]>({
@@ -76,6 +77,7 @@ export function FileScanner() {
             scanMode={scanMode}
             onScanModeChange={setScanMode}
             onLocalFilesChange={setLocalFiles}
+            onDirectoryHandleChange={setLocalDirectoryHandle}
           />
         </aside>
 
@@ -96,6 +98,7 @@ export function FileScanner() {
         scanId={currentScan?.id}
         localFiles={localFiles}
         isLocalMode={scanMode === 'local'}
+        localDirectoryHandle={localDirectoryHandle}
       />
     </>
   );

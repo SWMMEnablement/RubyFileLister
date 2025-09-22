@@ -22,6 +22,7 @@ interface ScanControlsProps {
   scanMode?: ScanMode;
   onScanModeChange?: (mode: ScanMode) => void;
   onLocalFilesChange?: (files: ScannedFile[]) => void;
+  onDirectoryHandleChange?: (handle: FileSystemDirectoryHandle | FileList | null) => void;
 }
 
 export function ScanControls({ 
@@ -30,7 +31,8 @@ export function ScanControls({
   onExport, 
   scanMode: propScanMode, 
   onScanModeChange, 
-  onLocalFilesChange 
+  onLocalFilesChange,
+  onDirectoryHandleChange 
 }: ScanControlsProps) {
   const [scanMode, setScanMode] = useState<ScanMode>(propScanMode || getDefaultMode());
   const [selectedDirectory, setSelectedDirectory] = useState("");
@@ -99,6 +101,11 @@ export function ScanControls({
     setLocalDirectoryHandle(handle);
     setSelectedDirectory(name);
     setShowLocalFolderPicker(false);
+    
+    // Pass directory handle to parent
+    if (onDirectoryHandleChange) {
+      onDirectoryHandleChange(handle);
+    }
   };
   
   const handleFolderCancel = () => {
@@ -408,7 +415,6 @@ export function ScanControls({
               variant="outline" 
               size="sm" 
               onClick={onExport}
-              disabled={!currentScan || currentScan.status !== "completed"}
               data-testid="button-export-txt"
             >
               <FileText className="mr-1" size={14} />
@@ -418,7 +424,6 @@ export function ScanControls({
               variant="outline" 
               size="sm" 
               onClick={onExport}
-              disabled={!currentScan || currentScan.status !== "completed"}
               data-testid="button-export-csv"
             >
               <FileSpreadsheet className="mr-1" size={14} />
@@ -430,7 +435,6 @@ export function ScanControls({
             size="sm" 
             className="w-full"
             onClick={onExport}
-            disabled={!currentScan || currentScan.status !== "completed"}
             data-testid="button-export-json"
           >
             <FileCode2 className="mr-1" size={14} />
