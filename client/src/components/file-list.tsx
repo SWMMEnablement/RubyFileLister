@@ -10,16 +10,18 @@ import type { ScanSession, ScannedFile } from "@shared/schema";
 
 interface FileListProps {
   currentScan: ScanSession | null;
+  localFiles?: ScannedFile[];
+  isLocalMode?: boolean;
 }
 
-export function FileList({ currentScan }: FileListProps) {
+export function FileList({ currentScan, localFiles = [], isLocalMode = false }: FileListProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [filterType, setFilterType] = useState("All Files");
   const { toast } = useToast();
 
-  const { data: files = [], isLoading, error } = useQuery<ScannedFile[]>({
+  const { data: serverFiles = [], isLoading, error } = useQuery<ScannedFile[]>({
     queryKey: ["/api/scan", currentScan?.id, "files", { search: searchQuery, type: filterType }],
-    enabled: !!currentScan?.id,
+    enabled: !!currentScan?.id && !isLocalMode,
     queryFn: async () => {
       console.log('FileList: Making API call for scan:', currentScan?.id);
       const searchParams = new URLSearchParams();
@@ -38,8 +40,22 @@ export function FileList({ currentScan }: FileListProps) {
       return data;
     },
   });
+  
+  // Filter local files client-side
+  const filteredLocalFiles = localFiles.filter(file => {
+    const matchesSearch = !searchQuery || 
+      file.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      file.path.toLowerCase().includes(searchQuery.toLowerCase());
+    
+    const matchesType = filterType === 'All Files' || file.type === filterType;
+    
+    return matchesSearch && matchesType;
+  });
+  
+  // Use appropriate file source
+  const files = isLocalMode ? filteredLocalFiles : serverFiles;
 
-  console.log('FileList: Current scan:', currentScan?.id, 'Files:', files.length, 'Error:', error);
+  console.log('FileList: Current scan:', currentScan?.id, 'Files:', files.length, 'Error:', error, 'IsLocalMode:', isLocalMode);
 
   const handleCopyPath = (path: string) => {
     navigator.clipboard.writeText(path).then(() => {

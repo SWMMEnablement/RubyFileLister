@@ -6,20 +6,39 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { FolderSelector } from "./folder-selector.tsx";
-import type { ScanSession, ScanOptions } from "@shared/schema";
+import { LocalFolderPicker } from "./local-folder-picker";
+import { ScanModeToggle, type ScanMode, getDefaultMode, getModeDescription } from "./scan-mode-toggle";
+import { LocalScanner, type ScanProgress } from "@/lib/local-scanner";
+import type { ScanSession, ScanOptions, ScannedFile } from "@shared/schema";
 
 interface ScanControlsProps {
   currentScan: ScanSession | null;
   onScanStart: (scan: ScanSession) => void;
   onExport: () => void;
+  scanMode?: ScanMode;
+  onScanModeChange?: (mode: ScanMode) => void;
+  onLocalFilesChange?: (files: ScannedFile[]) => void;
 }
 
-export function ScanControls({ currentScan, onScanStart, onExport }: ScanControlsProps) {
+export function ScanControls({ 
+  currentScan, 
+  onScanStart, 
+  onExport, 
+  scanMode: propScanMode, 
+  onScanModeChange, 
+  onLocalFilesChange 
+}: ScanControlsProps) {
+  const [scanMode, setScanMode] = useState<ScanMode>(propScanMode || getDefaultMode());
   const [selectedDirectory, setSelectedDirectory] = useState("");
   const [showFolderSelector, setShowFolderSelector] = useState(false);
+  const [showLocalFolderPicker, setShowLocalFolderPicker] = useState(false);
+  const [localDirectoryHandle, setLocalDirectoryHandle] = useState<FileSystemDirectoryHandle | FileList | null>(null);
+  const [localScanProgress, setLocalScanProgress] = useState<ScanProgress | null>(null);
+  const [localScannedFiles, setLocalScannedFiles] = useState<ScannedFile[]>([]);
   const [scanOptions, setScanOptions] = useState<ScanOptions>({
     directory: "",
     includeSubdirectories: true,
@@ -27,6 +46,7 @@ export function ScanControls({ currentScan, onScanStart, onExport }: ScanControl
     rubyFilesOnly: false,
   });
   const { toast } = useToast();
+  const localScanner = new LocalScanner();
 
   // Poll scan progress if scanning
   const { data: scanData } = useQuery({
@@ -57,7 +77,11 @@ export function ScanControls({ currentScan, onScanStart, onExport }: ScanControl
   });
 
   const handleDirectorySelect = () => {
-    setShowFolderSelector(true);
+    if (scanMode === 'local') {
+      setShowLocalFolderPicker(true);
+    } else {
+      setShowFolderSelector(true);
+    }
   };
   
   const handleFolderSelect = (path: string) => {
@@ -71,42 +95,200 @@ export function ScanControls({ currentScan, onScanStart, onExport }: ScanControl
     localStorage.setItem('recentDirectories', JSON.stringify(updatedPaths));
   };
   
+  const handleLocalFolderSelect = (handle: FileSystemDirectoryHandle | FileList, name: string) => {
+    setLocalDirectoryHandle(handle);
+    setSelectedDirectory(name);
+    setShowLocalFolderPicker(false);
+  };
+  
   const handleFolderCancel = () => {
     setShowFolderSelector(false);
   };
+  
+  const handleLocalFolderCancel = () => {
+    setShowLocalFolderPicker(false);
+  };
 
-  const handleScanStart = () => {
-    if (!scanOptions.directory) {
+  const handleScanStart = async () => {
+    if (scanMode === 'local') {
+      await handleLocalScanStart();
+    } else {
+      if (!scanOptions.directory) {
+        toast({
+          title: "No Directory Selected",
+          description: "Please select a directory to scan first.",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      scanMutation.mutate(scanOptions);
+    }
+  };
+  
+  const handleLocalScanStart = async () => {
+    if (!localDirectoryHandle) {
       toast({
         title: "No Directory Selected",
-        description: "Please select a directory to scan first.",
+        description: "Please select a local directory to scan first.",
         variant: "destructive",
       });
       return;
     }
     
-    scanMutation.mutate(scanOptions);
+    try {
+      // Create a mock scan session for local scanning
+      const localSession: ScanSession = {
+        id: crypto.randomUUID(),
+        directory: selectedDirectory,
+        includeSubdirectories: scanOptions.includeSubdirectories,
+        showHiddenFiles: scanOptions.showHiddenFiles,
+        rubyFilesOnly: scanOptions.rubyFilesOnly,
+        status: 'scanning',
+        totalFiles: 0,
+        foundFiles: 0,
+        createdAt: new Date()
+      };
+      
+      onScanStart(localSession);
+      
+      setLocalScanProgress({
+        status: 'scanning',
+        totalFiles: 0,
+        foundFiles: 0
+      });
+      
+      const onProgress = (progress: ScanProgress) => {
+        setLocalScanProgress(progress);
+        
+        // Update the session with progress
+        const updatedSession: ScanSession = {
+          ...localSession,
+          status: progress.status as any,
+          totalFiles: progress.totalFiles,
+          foundFiles: progress.foundFiles
+        };
+        onScanStart(updatedSession);
+      };
+      
+      let scannedFiles: ScannedFile[];
+      
+      if (localDirectoryHandle instanceof FileList) {
+        // WebKit directory scanning
+        scannedFiles = await localScanner.scanWebkitDirectory(
+          localDirectoryHandle,
+          {
+            includeSubdirectories: scanOptions.includeSubdirectories,
+            showHiddenFiles: scanOptions.showHiddenFiles,
+            rubyFilesOnly: scanOptions.rubyFilesOnly
+          },
+          onProgress
+        );
+      } else {
+        // File System Access API scanning
+        scannedFiles = await localScanner.scanDirectory(
+          localDirectoryHandle,
+          {
+            includeSubdirectories: scanOptions.includeSubdirectories,
+            showHiddenFiles: scanOptions.showHiddenFiles,
+            rubyFilesOnly: scanOptions.rubyFilesOnly
+          },
+          onProgress
+        );
+      }
+      
+      // Set the scanId for all files
+      const filesWithScanId = scannedFiles.map(file => ({
+        ...file,
+        scanId: localSession.id
+      }));
+      
+      setLocalScannedFiles(filesWithScanId);
+      
+      // Pass local files to parent
+      if (onLocalFilesChange) {
+        onLocalFilesChange(filesWithScanId);
+      }
+      
+      // Final session update
+      const completedSession: ScanSession = {
+        ...localSession,
+        status: 'completed',
+        totalFiles: localScanProgress?.totalFiles || 0,
+        foundFiles: filesWithScanId.length
+      };
+      onScanStart(completedSession);
+      
+      toast({
+        title: "Scan Completed",
+        description: `Found ${filesWithScanId.length} files in local directory.`,
+      });
+      
+    } catch (error) {
+      console.error('Local scan error:', error);
+      toast({
+        title: "Scan Failed",
+        description: error instanceof Error ? error.message : "Failed to scan local directory.",
+        variant: "destructive",
+      });
+      
+      setLocalScanProgress({
+        status: 'error',
+        totalFiles: 0,
+        foundFiles: 0
+      });
+    }
   };
 
   const currentScanData = (scanData as ScanSession) || currentScan;
-  const isScanning = currentScanData?.status === "scanning";
-  const progress = currentScanData?.totalFiles ? 
-    Math.round(((currentScanData.foundFiles || 0) / Math.max(currentScanData.totalFiles, 1)) * 100) : 0;
+  const isScanning = scanMode === 'local' 
+    ? localScanProgress?.status === 'scanning'
+    : currentScanData?.status === "scanning";
+  
+  const progress = scanMode === 'local' && localScanProgress
+    ? localScanProgress.totalFiles > 0 
+      ? Math.round((localScanProgress.foundFiles / Math.max(localScanProgress.totalFiles, 1)) * 100)
+      : 0
+    : currentScanData?.totalFiles 
+      ? Math.round(((currentScanData.foundFiles || 0) / Math.max(currentScanData.totalFiles, 1)) * 100) 
+      : 0;
 
   return (
     <>
+      {/* Mode Toggle */}
+      <div className="p-6 border-b border-border">
+        <ScanModeToggle 
+          mode={scanMode} 
+          onModeChange={(mode) => {
+            setScanMode(mode);
+            if (onScanModeChange) {
+              onScanModeChange(mode);
+            }
+          }} 
+        />
+        {scanMode && (
+          <Alert className="mt-3">
+            <AlertDescription className="text-sm">
+              {getModeDescription(scanMode)}
+            </AlertDescription>
+          </Alert>
+        )}
+      </div>
+
       {/* Folder Selection Section */}
       <div className="p-6 border-b border-border">
         <div className="space-y-4">
           <div>
-            <h2 className="text-sm font-medium text-foreground mb-3">Select Directory</h2>
+            <h2 className="text-sm font-medium text-foreground mb-3">
+              {scanMode === 'local' ? 'Select Local Directory' : 'Select Workspace Directory'}
+            </h2>
             <Button 
               onClick={handleDirectorySelect}
               className="w-full flex items-center justify-center"
               data-testid="button-select-folder"
             >
               <FolderOpen className="mr-2" size={16} />
-              Choose Folder
+              {scanMode === 'local' ? 'Choose Local Folder' : 'Choose Workspace Folder'}
             </Button>
           </div>
           
@@ -201,10 +383,16 @@ export function ScanControls({ currentScan, onScanStart, onExport }: ScanControl
             <Progress value={isScanning ? progress : 100} className="w-full" />
             <div className="flex items-center justify-between text-xs text-muted-foreground">
               <span data-testid="text-files-scanned">
-                {currentScanData?.totalFiles || 0} files scanned
+                {scanMode === 'local' && localScanProgress
+                  ? `${localScanProgress.totalFiles} files scanned`
+                  : `${currentScanData?.totalFiles || 0} files scanned`
+                }
               </span>
               <span data-testid="text-ruby-files-found">
-                {currentScanData?.foundFiles || 0} .rb files found
+                {scanMode === 'local' && localScanProgress
+                  ? `${localScanProgress.foundFiles} files found`
+                  : `${currentScanData?.foundFiles || 0} files found`
+                }
               </span>
             </div>
           </div>
@@ -256,6 +444,15 @@ export function ScanControls({ currentScan, onScanStart, onExport }: ScanControl
         <FolderSelector 
           onSelect={handleFolderSelect}
           onCancel={handleFolderCancel}
+        />
+      )}
+      
+      {/* Local Folder Picker Modal */}
+      {showLocalFolderPicker && (
+        <LocalFolderPicker 
+          isOpen={showLocalFolderPicker}
+          onSelect={handleLocalFolderSelect}
+          onClose={handleLocalFolderCancel}
         />
       )}
     </>

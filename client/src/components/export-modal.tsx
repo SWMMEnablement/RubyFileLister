@@ -8,15 +8,17 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
-import type { ExportOptions } from "@shared/schema";
+import type { ExportOptions, ScannedFile } from "@shared/schema";
 
 interface ExportModalProps {
   isOpen: boolean;
   onClose: () => void;
   scanId?: string;
+  localFiles?: ScannedFile[];
+  isLocalMode?: boolean;
 }
 
-export function ExportModal({ isOpen, onClose, scanId }: ExportModalProps) {
+export function ExportModal({ isOpen, onClose, scanId, localFiles = [], isLocalMode = false }: ExportModalProps) {
   const [exportOptions, setExportOptions] = useState<ExportOptions>({
     format: "txt",
     filename: "ruby_files_export",
@@ -72,20 +74,136 @@ export function ExportModal({ isOpen, onClose, scanId }: ExportModalProps) {
     },
   });
 
-  const handleExport = () => {
-    if (!scanId) {
-      toast({
-        title: "No Scan Data",
-        description: "No scan data available for export.",
-        variant: "destructive",
-      });
-      return;
+  const generateClientSideExport = (files: ScannedFile[], options: ExportOptions): string => {
+    const formatFileSize = (bytes: number) => (bytes / 1024).toFixed(1) + " KB";
+    const formatDate = (date: Date) => date.toLocaleDateString();
+    
+    switch (options.format) {
+      case 'txt':
+        let txtContent = `Ruby Files Export\n`;
+        txtContent += `Generated: ${new Date().toLocaleString()}\n`;
+        txtContent += `Total Files: ${files.length}\n\n`;
+        
+        files.forEach((file, index) => {
+          txtContent += `${index + 1}. ${file.name}\n`;
+          if (options.includePaths) txtContent += `   Path: ${file.path}\n`;
+          if (options.includeSizes) txtContent += `   Size: ${formatFileSize(file.size)}\n`;
+          if (options.includeModified) txtContent += `   Modified: ${formatDate(file.modified)}\n`;
+          txtContent += `   Type: ${file.type}\n\n`;
+        });
+        
+        return txtContent;
+        
+      case 'csv':
+        const headers = ['Name', 'Type'];
+        if (options.includePaths) headers.push('Path');
+        if (options.includeSizes) headers.push('Size (KB)');
+        if (options.includeModified) headers.push('Modified');
+        
+        let csvContent = headers.join(',') + '\n';
+        
+        files.forEach(file => {
+          const row = [file.name, file.type];
+          if (options.includePaths) row.push(`"${file.path}"`);
+          if (options.includeSizes) row.push((file.size / 1024).toFixed(1));
+          if (options.includeModified) row.push(`"${formatDate(file.modified)}"`);
+          csvContent += row.join(',') + '\n';
+        });
+        
+        return csvContent;
+        
+      case 'json':
+        const jsonData = {
+          exportInfo: {
+            generated: new Date().toISOString(),
+            totalFiles: files.length,
+            exportOptions: options
+          },
+          files: files.map(file => {
+            const fileData: any = {
+              name: file.name,
+              type: file.type
+            };
+            if (options.includePaths) fileData.path = file.path;
+            if (options.includeSizes) fileData.sizeKB = (file.size / 1024).toFixed(1);
+            if (options.includeModified) fileData.modified = file.modified.toISOString();
+            return fileData;
+          })
+        };
+        
+        return JSON.stringify(jsonData, null, 2);
+        
+      default:
+        return '';
     }
+  };
+  
+  const downloadClientSideExport = (content: string, filename: string, format: string) => {
+    const blob = new Blob([content], { type: getContentType(format) });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.style.display = 'none';
+    a.href = url;
+    a.download = `${filename}.${format}`;
+    document.body.appendChild(a);
+    a.click();
+    window.URL.revokeObjectURL(url);
+    document.body.removeChild(a);
+  };
+  
+  const getContentType = (format: string): string => {
+    switch (format) {
+      case 'txt': return 'text/plain';
+      case 'csv': return 'text/csv';
+      case 'json': return 'application/json';
+      default: return 'text/plain';
+    }
+  };
 
-    exportMutation.mutate({
-      ...exportOptions,
-      scanId,
-    });
+  const handleExport = () => {
+    if (isLocalMode) {
+      // Client-side export for local files
+      if (localFiles.length === 0) {
+        toast({
+          title: "No Files to Export",
+          description: "No files available for export.",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      try {
+        const content = generateClientSideExport(localFiles, exportOptions);
+        downloadClientSideExport(content, exportOptions.filename, exportOptions.format);
+        
+        toast({
+          title: "Export Successful",
+          description: "File has been downloaded.",
+        });
+        onClose();
+      } catch (error) {
+        toast({
+          title: "Export Failed",
+          description: "Failed to generate export file.",
+          variant: "destructive",
+        });
+      }
+    } else {
+      // Server-side export for workspace files
+      if (!scanId) {
+        toast({
+          title: "No Scan Data",
+          description: "No scan data available for export.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      exportMutation.mutate({
+        ...exportOptions,
+        scanId,
+      });
+    }
   };
 
   return (

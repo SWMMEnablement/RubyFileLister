@@ -4,11 +4,13 @@ import { Gem, Settings, HelpCircle } from "lucide-react";
 import { ScanControls } from "./scan-controls.tsx";
 import { FileList } from "./file-list.tsx";
 import { ExportModal } from "./export-modal.tsx";
-import type { ScanSession } from "@shared/schema";
+import type { ScanSession, ScannedFile } from "@shared/schema";
 
 export function FileScanner() {
   const [currentScan, setCurrentScan] = useState<ScanSession | null>(null);
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
+  const [scanMode, setScanMode] = useState<'local' | 'workspace'>('local');
+  const [localFiles, setLocalFiles] = useState<ScannedFile[]>([]);
 
   // Auto-load the most recent scan on page load
   const { data: scans = [] } = useQuery<ScanSession[]>({
@@ -71,12 +73,19 @@ export function FileScanner() {
             currentScan={currentScan} 
             onScanStart={setCurrentScan}
             onExport={() => setIsExportModalOpen(true)}
+            scanMode={scanMode}
+            onScanModeChange={setScanMode}
+            onLocalFilesChange={setLocalFiles}
           />
         </aside>
 
         {/* Main Content */}
         <main className="flex-1 overflow-hidden flex flex-col">
-          <FileList currentScan={currentScan} />
+          <FileList 
+            currentScan={currentScan} 
+            localFiles={localFiles}
+            isLocalMode={scanMode === 'local'}
+          />
         </main>
       </div>
 
@@ -85,6 +94,8 @@ export function FileScanner() {
         isOpen={isExportModalOpen} 
         onClose={() => setIsExportModalOpen(false)}
         scanId={currentScan?.id}
+        localFiles={localFiles}
+        isLocalMode={scanMode === 'local'}
       />
     </>
   );
