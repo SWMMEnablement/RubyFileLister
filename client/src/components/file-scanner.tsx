@@ -75,7 +75,7 @@ export function FileScanner() {
 
       <div className="flex h-screen pt-16">
         {/* Sidebar */}
-        <aside className="w-80 bg-card border-r border-border overflow-hidden flex flex-col">
+        <aside className="w-80 bg-card border-r border-border overflow-y-auto flex flex-col">
           <ScanControls 
             currentScan={currentScan} 
             onScanStart={setCurrentScan}
