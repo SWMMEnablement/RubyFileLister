@@ -5,6 +5,7 @@ import { scanOptionsSchema, exportOptionsSchema } from "@shared/schema";
 import { z } from "zod";
 import fs from "fs/promises";
 import path from "path";
+import { GitHubService } from "./lib/github-service";
 
 // Get supported file extensions for a language
 function getLanguageExtensions(language: string): string[] {
@@ -238,8 +239,81 @@ export async function registerRoutes(app: Express): Promise<Server> {
           foundFiles: found,
         });
       }).then(async ({ files, totalScanned }) => {
-        // Save all found files
-        for (const file of files) {
+        // Check if this might be a GitHub repository
+        const githubToken = process.env.GITHUB_TOKEN;
+        const repoInfo = GitHubService.parseRepoInfo(options.directory);
+        
+        let enrichedFiles = files;
+        
+        // If we have a GitHub token and detected a repository, fetch commit information
+        if (githubToken && repoInfo) {
+          try {
+            console.log(`Detected GitHub repository: ${repoInfo.owner}/${repoInfo.repo}`);
+            const githubService = new GitHubService(githubToken);
+            
+            // Test connection first
+            const canAccess = await githubService.testConnection(repoInfo);
+            if (canAccess) {
+              console.log(`Fetching commit information for ${files.length} files...`);
+              const commitMap = await githubService.getCommitInfoForFiles(repoInfo, files);
+              
+              // Enrich files with commit information
+              enrichedFiles = files.map(file => {
+                const commitInfo = commitMap.get(file.id);
+                if (commitInfo) {
+                  return {
+                    ...file,
+                    commitAuthor: commitInfo.author,
+                    commitEmail: commitInfo.email,
+                    commitHash: commitInfo.hash,
+                    commitMessage: commitInfo.message,
+                    commitDate: commitInfo.date,
+                    githubUrl: commitInfo.url
+                  };
+                }
+                return {
+                  ...file,
+                  commitAuthor: null,
+                  commitEmail: null,
+                  commitHash: null,
+                  commitMessage: null,
+                  commitDate: null,
+                  githubUrl: null
+                };
+              });
+              
+              console.log(`Successfully enriched ${commitMap.size} files with commit information`);
+            } else {
+              console.warn('Could not access GitHub repository - check token permissions');
+            }
+          } catch (error) {
+            console.error('Error fetching GitHub commit information:', error);
+            // Continue without commit info if there's an error
+            enrichedFiles = files.map(file => ({
+              ...file,
+              commitAuthor: null,
+              commitEmail: null,
+              commitHash: null,
+              commitMessage: null,
+              commitDate: null,
+              githubUrl: null
+            }));
+          }
+        } else {
+          // No GitHub token or not a GitHub repository - add null commit fields
+          enrichedFiles = files.map(file => ({
+            ...file,
+            commitAuthor: null,
+            commitEmail: null,
+            commitHash: null,
+            commitMessage: null,
+            commitDate: null,
+            githubUrl: null
+          }));
+        }
+        
+        // Save all found files with commit information
+        for (const file of enrichedFiles) {
           await storage.addScannedFile({
             ...file,
             scanId: session.id,
@@ -250,7 +324,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         await storage.updateScanSession(session.id, {
           status: "completed",
           totalFiles: totalScanned,
-          foundFiles: files.length,
+          foundFiles: enrichedFiles.length,
         });
       }).catch(async (error) => {
         console.error("Scan error:", error);
