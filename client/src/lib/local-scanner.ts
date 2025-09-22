@@ -181,22 +181,8 @@ export async function scanDirectoryWithFSA(
         }
         
         if (handle.kind === 'directory') {
-          totalFiles++;
-          
+          // Don't count or include directories in results - only recurse if needed
           const dirPath = relativePath === './' ? name : `${relativePath}/${name}`;
-          const fileType = getFileType(name, true);
-          
-          // Add directory to results (always include directories)
-          files.push({
-            id: crypto.randomUUID(),
-            scanId: '', // Will be set by parent component
-            name,
-            path: dirPath,
-            relativePath: dirPath,
-            size: 0,
-            type: fileType,
-            modified: new Date()
-          });
           
           // Recurse into subdirectories if requested
           if (options.includeSubdirectories) {
