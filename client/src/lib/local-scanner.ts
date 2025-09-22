@@ -208,7 +208,14 @@ export async function scanDirectoryWithFSA(
             relativePath: filePath,
             size: file.size,
             type: fileType,
-            modified: new Date(file.lastModified)
+            modified: new Date(file.lastModified),
+            // GitHub commit information (null for local files)
+            commitAuthor: null,
+            commitEmail: null,
+            commitHash: null,
+            commitMessage: null,
+            commitDate: null,
+            githubUrl: null
           });
         }
         
@@ -308,7 +315,14 @@ export async function scanDirectoryWithWebkit(
       relativePath: `./${relativePath}`,
       size: file.size,
       type: fileType,
-      modified: new Date(file.lastModified)
+      modified: new Date(file.lastModified),
+      // GitHub commit information (null for local files)
+      commitAuthor: null,
+      commitEmail: null,
+      commitHash: null,
+      commitMessage: null,
+      commitDate: null,
+      githubUrl: null
     });
     
     // Update progress

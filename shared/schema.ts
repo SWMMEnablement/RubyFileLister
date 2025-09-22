@@ -12,6 +12,13 @@ export const scannedFiles = pgTable("scanned_files", {
   modified: timestamp("modified").notNull(),
   type: text("type").notNull(), // "Model", "Controller", "View", "Test", "Configuration", etc.
   scanId: varchar("scan_id").notNull(),
+  // GitHub commit information (optional)
+  commitAuthor: text("commit_author"),
+  commitEmail: text("commit_email"),
+  commitHash: text("commit_hash"),
+  commitMessage: text("commit_message"),
+  commitDate: timestamp("commit_date"),
+  githubUrl: text("github_url"),
 });
 
 export const scanSessions = pgTable("scan_sessions", {
